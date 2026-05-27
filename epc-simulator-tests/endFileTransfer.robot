@@ -54,7 +54,7 @@ End Transfer For Bearer ${ue_id} ${bearer_id}
 	[Documentation]    Kończy transfer dla podanego bearera (UE + bearer) używając DELETE /ues/{ue_id}/bearers/{bearer_id}/traffic.
 	${response}=    DELETE On Session    epc    /ues/${ue_id}/bearers/${bearer_id}/traffic    expected_status=any
 	Set Test Variable    ${LAST_RESPONSE}    ${response}
-    # Zwraza traffic_stopped nawet gdy nie było aktywnego transferu
+    # Zwraza traffic_stopped nawet gdy nie było aktywnego transferu (Bearer)
 
 End Transfer For All Bearers ${ue_id}
 	[Documentation]    Kończy transfer dla wszystkich bearerów UE (tu: usuwa traffic dla domyślnego bearer ID).
