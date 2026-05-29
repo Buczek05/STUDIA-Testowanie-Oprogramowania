@@ -14,6 +14,7 @@ ${DEFAULT_BEARER_ID}         ${9}
 ${DEDICATED_BEARER_ID}       ${1}
 ${VALID_MBPS}                ${10}
 ${VALID_PROTOCOL}            tcp
+${OVER_LIMIT_MBPS}           ${10000}
 ${FIRST_SESSION_SECONDS}     2
 
 *** Test Cases ***
@@ -96,6 +97,19 @@ BUG-10 duration Akumuluje Się Pomiędzy Kolejnymi Sesjami Na Tym Samym Bearerze
     Restart traffic on UE ${VALID_UE_ID} bearer ${DEFAULT_BEARER_ID}
     Get traffic stats for UE ${VALID_UE_ID} bearer ${DEFAULT_BEARER_ID}
     duration should exceed ${FIRST_SESSION_SECONDS}s proving accumulation from previous session
+
+BUG-13 Limit 100 Mbps Nie Jest Egzekwowany — Dowolna Wartość Akceptowana
+    [Documentation]    Błąd: limit 100 Mbps zdefiniowany w specyfikacji nie jest egzekwowany.
+    ...                Mbps=10000 (10 Gbps) jest akceptowane (target_bps=10000000000), podobnie
+    ...                jak dowolna inna wartość powyżej limitu — walidacja górnej granicy
+    ...                przepustowości jest całkowicie nieobecna lub nieskuteczna.
+    ...                Poprawne zachowanie: każda wartość Mbps > 100 powinna być odrzucona.
+    ...                Endpoint: POST /ues/{ue_id}/bearers/{bearer_id}/traffic
+    ...                Body: {"protocol": "tcp", "Mbps": 10000}
+    [Tags]    bug    traffic    validation
+    Attach UE ${VALID_UE_ID}
+    Start traffic on UE ${VALID_UE_ID} bearer ${DEFAULT_BEARER_ID} with ${OVER_LIMIT_MBPS} Mbps
+    Response should accept 10000 Mbps despite the 100 Mbps spec limit
 
 *** Keywords ***
 Reset EPC
@@ -215,6 +229,13 @@ Response should confirm bearer_deleted despite active traffic
     ...                Test PRZECHODZI = bug istnieje. Test FAILUJE = bug naprawiony (API zwraca 4xx lub ostrzeżenie).
     Status Should Be              200    ${LAST_RESPONSE}
     Should Be Equal As Strings    ${LAST_RESPONSE.json()}[status]    bearer_deleted
+
+Response should accept 10000 Mbps despite the 100 Mbps spec limit
+    [Documentation]    Weryfikuje że Mbps=10000 jest akceptowane mimo limitu 100 Mbps.
+    ...                Test PRZECHODZI = bug istnieje. Test FAILUJE = bug naprawiony (API zwraca 4xx).
+    Status Should Be              200    ${LAST_RESPONSE}
+    Should Be Equal As Strings    ${LAST_RESPONSE.json()}[status]    traffic_started
+    Should Be Equal As Integers   ${LAST_RESPONSE.json()}[target_bps]    10000000000
 
 duration should exceed ${min_seconds}s proving accumulation from previous session
     [Documentation]    Weryfikuje że duration > ${min_seconds}s po zaledwie ~1s drugiej sesji.
