@@ -18,7 +18,7 @@ ${DEDICATED_BEARER_ID}     ${3}
 ${UNATTACHED_UE_ID}        ${77}
 
 *** Test Cases ***
-T-050 Attached UE exposes the default bearer 9 on its bearer list
+T-042 Attached UE exposes the default bearer 9 on its bearer list
     [Documentation]    Akcja: sprawdzenie bearerów podłączonego UE.
     ...                Oczekiwane: 200 oraz lista bearerów zawiera domyślny bearer 9 ustanawiany przy attachu.
     [Tags]    list-bearers    happy-path
@@ -26,7 +26,7 @@ T-050 Attached UE exposes the default bearer 9 on its bearer list
     Get bearers of UE ${VALID_UE_ID}
     UE ${VALID_UE_ID} bearer list should contain bearer ${DEFAULT_BEARER_ID}
 
-T-051 A dedicated bearer appears alongside the default bearer after being added
+T-043 A dedicated bearer appears alongside the default bearer after being added
     [Documentation]    Akcja: dodanie dedykowanego bearera do podłączonego UE i sprawdzenie listy bearerów.
     ...                Oczekiwane: lista bearerów zawiera zarówno domyślny bearer 9, jak i dodany dedykowany bearer.
     [Tags]    list-bearers    state
@@ -36,7 +36,7 @@ T-051 A dedicated bearer appears alongside the default bearer after being added
     UE ${VALID_UE_ID} bearer list should contain bearer ${DEFAULT_BEARER_ID}
     UE ${VALID_UE_ID} bearer list should contain bearer ${DEDICATED_BEARER_ID}
 
-T-052 A deleted dedicated bearer disappears from the bearer list
+T-044 A deleted dedicated bearer disappears from the bearer list
     [Documentation]    Akcja: dodanie i następnie usunięcie dedykowanego bearera, potem sprawdzenie listy bearerów.
     ...                Oczekiwane: usunięty dedykowany bearer znika z listy, domyślny bearer 9 pozostaje dostępny.
     [Tags]    list-bearers    state
@@ -47,7 +47,7 @@ T-052 A deleted dedicated bearer disappears from the bearer list
     UE ${VALID_UE_ID} bearer list should contain bearer ${DEFAULT_BEARER_ID}
     UE ${VALID_UE_ID} bearer list should not contain bearer ${DEDICATED_BEARER_ID}
 
-T-053 Listing bearers of an unattached UE is rejected
+T-045 Listing bearers of an unattached UE is rejected
     [Documentation]    Akcja: sprawdzenie bearerów UE, który nie został przyłączony do sieci.
     ...                Oczekiwane: błąd - procedura wg spec wymaga istniejącego UE ID.
     [Tags]    list-bearers    error

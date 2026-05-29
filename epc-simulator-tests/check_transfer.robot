@@ -12,11 +12,11 @@ Test Setup       Reset EPC
 ${BASE_URL}              http://localhost:8000
 ${VALID_UE_ID}           ${50}
 ${DEFAULT_BEARER_ID}     ${9}
-${DEDICATED_BEARER_ID}   ${1}
 ${INACTIVE_BEARER_ID}    ${5}
 ${UNATTACHED_UE_ID}      ${77}
 ${VALID_MBPS}            ${50}
 ${VALID_PROTOCOL}        tcp
+${DEDICATED_BEARER_ID}   ${1}
 
 *** Test Cases ***
 T-021 Checking per-bearer traffic of an active transfer returns its stats

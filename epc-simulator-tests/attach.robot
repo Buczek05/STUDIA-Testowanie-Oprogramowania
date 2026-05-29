@@ -36,7 +36,7 @@ T-004 Attach Already Attached UE Is Rejected
     Attach UE-50
     Verify Attach Was Rejected With Message-50    already attached
 
-T-076 Attach UE With ID 0 From Spec Range Succeeds
+T-059 Attach UE With ID 0 From Spec Range Succeeds
     [Documentation]    Akcja: attach UE o ID 0 (specyfikacja podaje zakres dostępnych UE: 0-100).
     ...                Oczekiwane: 200 - wg spec UE 0 mieści się w dozwolonym zakresie.
     [Tags]    attach    boundary

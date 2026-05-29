@@ -15,14 +15,14 @@ ${VALID_MBPS}            ${50}
 ${VALID_PROTOCOL}        tcp
 
 *** Test Cases ***
-T-070 Reset returns status reset
+T-053 Reset returns status reset
     [Documentation]    Akcja: wywołanie POST /reset na symulatorze.
     ...                Oczekiwane: 200 ze statusem reset potwierdzającym przywrócenie stanu początkowego.
     [Tags]    reset    happy-path
     Reset simulator
     Reset response should confirm
 
-T-071 Reset clears attached UEs
+T-054 Reset clears attached UEs
     [Documentation]    Akcja: przyłączenie UE, a następnie reset symulatora.
     ...                Oczekiwane: po resecie lista przyłączonych UE jest pusta.
     [Tags]    reset    state
@@ -34,7 +34,7 @@ T-071 Reset clears attached UEs
     List UEs
     UE list should be empty
 
-T-072 Reset is idempotent on an already empty state
+T-055 Reset is idempotent on an already empty state
     [Documentation]    Akcja: dwukrotne wywołanie resetu, drugi raz na już pustym stanie.
     ...                Oczekiwane: każdy reset zwraca 200, a lista UE pozostaje pusta.
     [Tags]    reset    idempotency    state
@@ -45,7 +45,7 @@ T-072 Reset is idempotent on an already empty state
     List UEs
     UE list should be empty
 
-T-073 Reset clears an active transfer
+T-056 Reset clears an active transfer
     [Documentation]    Akcja: przyłączenie UE, rozpoczęcie transferu, a następnie reset symulatora.
     ...                Oczekiwane: po resecie lista przyłączonych UE jest pusta - aktywny transfer również zostaje usunięty.
     [Tags]    reset    state    transfer
@@ -56,7 +56,7 @@ T-073 Reset clears an active transfer
     List UEs
     UE list should be empty
 
-T-074 Reset via wrong HTTP method is rejected
+T-057 Reset via wrong HTTP method is rejected
     [Documentation]    Akcja: wywołanie /reset metodą GET zamiast POST.
     ...                Oczekiwane: błąd - niedozwolona metoda (405 Method Not Allowed).
     [Tags]    reset    method    error

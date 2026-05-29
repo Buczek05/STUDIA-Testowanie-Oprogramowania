@@ -20,7 +20,7 @@ ${BEARER_BELOW_RANGE}    ${0}
 ${UNATTACHED_UE_ID}      ${77}
 
 *** Test Cases ***
-T-040 Adding a valid bearer returns status bearer_added
+T-080 Adding a valid bearer returns status bearer_added
     [Documentation]    Akcja: dodanie dedykowanego bearera o ID z zakresu 1-9 do podłączonego UE.
     ...                Oczekiwane: 200 ze statusem bearer_added oraz zgodnym UE ID i bearer ID.
     [Tags]    add-bearer    happy-path
@@ -28,7 +28,7 @@ T-040 Adding a valid bearer returns status bearer_added
     Add bearer ${VALID_BEARER_ID} to UE ${VALID_UE_ID}
     Add bearer response should confirm UE ${VALID_UE_ID} bearer ${VALID_BEARER_ID}
 
-T-041 Added bearer appears alongside the default bearer in UE state
+T-081 Added bearer appears alongside the default bearer in UE state
     [Documentation]    Akcja: dodanie bearera i podgląd stanu UE przez GET /ues/{id}.
     ...                Oczekiwane: nowy bearer pojawia się obok domyślnego bearera 9.
     [Tags]    add-bearer    state
@@ -36,21 +36,21 @@ T-041 Added bearer appears alongside the default bearer in UE state
     Add bearer ${VALID_BEARER_ID} to UE ${VALID_UE_ID}
     UE ${VALID_UE_ID} should have bearers ${VALID_BEARER_ID} and ${DEFAULT_BEARER_ID}
 
-T-042 Adding a bearer above the valid range is rejected
+T-082 Adding a bearer above the valid range is rejected
     [Documentation]    Akcja: dodanie bearera o ID = 10 (powyżej zakresu 1-9 zdefiniowanego w kontrakcie).
     ...                Oczekiwane: błąd - procedura wymaga bearer ID z dozwolonego zakresu.
     [Tags]    add-bearer    validation
     Attach UE ${VALID_UE_ID}
     Adding bearer ${BEARER_ABOVE_RANGE} to UE ${VALID_UE_ID} should be rejected with message "Input should be less than or equal to 9"
 
-T-043 Adding a bearer below the valid range is rejected
+T-083 Adding a bearer below the valid range is rejected
     [Documentation]    Akcja: dodanie bearera o ID = 0 (poniżej zakresu 1-9 zdefiniowanego w kontrakcie).
     ...                Oczekiwane: błąd - procedura wymaga bearer ID z dozwolonego zakresu.
     [Tags]    add-bearer    validation
     Attach UE ${VALID_UE_ID}
     Adding bearer ${BEARER_BELOW_RANGE} to UE ${VALID_UE_ID} should be rejected with message "Input should be greater than or equal to 1"
 
-T-044 Adding an already-added bearer is rejected
+T-084 Adding an already-added bearer is rejected
     [Documentation]    Akcja: dwukrotne dodanie tego samego bearera do UE.
     ...                Oczekiwane: drugie dodanie powinno zostać odrzucone - bearer już istnieje.
     [Tags]    add-bearer    conflict
@@ -58,14 +58,14 @@ T-044 Adding an already-added bearer is rejected
     Add bearer ${VALID_BEARER_ID} to UE ${VALID_UE_ID}
     Adding bearer ${VALID_BEARER_ID} to UE ${VALID_UE_ID} should be rejected with message "Bearer already exists"
 
-T-045 Adding the default bearer 9 is rejected
+T-085 Adding the default bearer 9 is rejected
     [Documentation]    Akcja: dodanie bearera o ID = 9, który jest domyślnie ustanawiany przy podłączeniu UE.
     ...                Oczekiwane: błąd - bearer 9 już istnieje dla podłączonego UE.
     [Tags]    add-bearer    conflict
     Attach UE ${VALID_UE_ID}
     Adding bearer ${DEFAULT_BEARER_ID} to UE ${VALID_UE_ID} should be rejected with message "Bearer already exists"
 
-T-046 Adding a bearer to an unattached UE is rejected
+T-086 Adding a bearer to an unattached UE is rejected
     [Documentation]    Akcja: dodanie bearera do UE, który nie został przyłączony do sieci.
     ...                Oczekiwane: błąd - procedura wg spec wymaga istniejącego UE ID.
     [Tags]    add-bearer    error

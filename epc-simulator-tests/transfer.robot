@@ -114,7 +114,7 @@ T-020 Starting traffic with bearer ID above valid range is rejected
     Attach UE ${VALID_UE_ID}
     Starting traffic for UE ${VALID_UE_ID} on bearer ${BEARER_ID_ABOVE_RANGE} with protocol ${VALID_PROTOCOL} at ${VALID_MBPS} Mbps should be rejected
 
-T-075 Starting traffic above the 100 Mbps DL limit is rejected
+T-058 Starting traffic above the 100 Mbps DL limit is rejected
     [Documentation]    Akcja: start transferu z Mbps=101, tuż powyżej limitu ze specyfikacji.
     ...                Oczekiwane: błąd - wg spec maksymalny transfer dla UE w kierunku DL to 100 Mbps.
     [Tags]    transfer    validation    out-of-range

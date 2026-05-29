@@ -22,7 +22,7 @@ ${VALID_MBPS}              ${50}
 ${VALID_PROTOCOL}          tcp
 
 *** Test Cases ***
-T-060 Deleting an added dedicated bearer returns status bearer_deleted
+T-046 Deleting an added dedicated bearer returns status bearer_deleted
     [Documentation]    Akcja: usunięcie wcześniej dodanego dedykowanego bearera dla podłączonego UE.
     ...                Oczekiwane: 200 ze statusem bearer_deleted oraz UE ID i bearer ID zgodnymi z żądaniem.
     [Tags]    delete-bearer    happy-path
@@ -31,7 +31,7 @@ T-060 Deleting an added dedicated bearer returns status bearer_deleted
     Delete bearer ${DEDICATED_BEARER_ID} from UE ${VALID_UE_ID}
     Delete bearer response should confirm UE ${VALID_UE_ID} bearer ${DEDICATED_BEARER_ID}
 
-T-061 Deleted bearer no longer appears on the UE
+T-047 Deleted bearer no longer appears on the UE
     [Documentation]    Akcja: usunięcie dedykowanego bearera, a następnie odczyt danych UE.
     ...                Oczekiwane: usunięty bearer nie jest już obecny na liście bearerów UE.
     [Tags]    delete-bearer    state
@@ -40,14 +40,14 @@ T-061 Deleted bearer no longer appears on the UE
     Delete bearer ${DEDICATED_BEARER_ID} from UE ${VALID_UE_ID}
     UE ${VALID_UE_ID} should not have bearer ${DEDICATED_BEARER_ID}
 
-T-062 Deleting the default bearer 9 is forbidden
+T-048 Deleting the default bearer 9 is forbidden
     [Documentation]    Akcja: próba usunięcia domyślnego bearera o ID 9 ustanowionego przy podłączeniu UE.
     ...                Oczekiwane: błąd - wg spec nie ma możliwości usunięcia domyślnego bearera.
     [Tags]    delete-bearer    forbidden
     Attach UE ${VALID_UE_ID}
     Deleting bearer ${DEFAULT_BEARER_ID} from UE ${VALID_UE_ID} should be rejected with message "Cannot remove default bearer"
 
-T-063 Deleting a bearer that is not active is rejected
+T-049 Deleting a bearer that is not active is rejected
     [Documentation]    Akcja: dodanie i usunięcie bearera, a następnie ponowna próba usunięcia tego samego bearera.
     ...                Oczekiwane: błąd - wg spec usunięcie nieaktywnego bearera powinno zostać odrzucone.
     [Tags]    delete-bearer    error
@@ -56,21 +56,21 @@ T-063 Deleting a bearer that is not active is rejected
     Delete bearer ${DEDICATED_BEARER_ID} from UE ${VALID_UE_ID}
     Deleting bearer ${DEDICATED_BEARER_ID} from UE ${VALID_UE_ID} should be rejected with message "Bearer not found"
 
-T-064 Deleting a bearer above the valid range is rejected
+T-050 Deleting a bearer above the valid range is rejected
     [Documentation]    Akcja: próba usunięcia bearera o ID 10 (powyżej zakresu 1-9 zdefiniowanego w kontrakcie).
     ...                Oczekiwane: błąd - procedura wymaga bearer ID z dozwolonego zakresu.
     [Tags]    delete-bearer    validation
     Attach UE ${VALID_UE_ID}
     Deleting bearer ${BEARER_ABOVE_RANGE} from UE ${VALID_UE_ID} should be rejected with message "Bearer not found"
 
-T-065 Deleting a bearer below the valid range is rejected
+T-051 Deleting a bearer below the valid range is rejected
     [Documentation]    Akcja: próba usunięcia bearera o ID 0 (poniżej zakresu 1-9 zdefiniowanego w kontrakcie).
     ...                Oczekiwane: błąd - procedura wymaga bearer ID z dozwolonego zakresu.
     [Tags]    delete-bearer    validation
     Attach UE ${VALID_UE_ID}
     Deleting bearer ${BEARER_BELOW_RANGE} from UE ${VALID_UE_ID} should be rejected with message "Bearer not found"
 
-T-066 Deleting a bearer on an unattached UE is rejected
+T-052 Deleting a bearer on an unattached UE is rejected
     [Documentation]    Akcja: próba usunięcia bearera dla UE, który nie został przyłączony do sieci.
     ...                Oczekiwane: błąd - procedura wg spec wymaga istniejącego UE ID.
     [Tags]    delete-bearer    error
@@ -103,6 +103,12 @@ Add bearer ${bearer_id} to UE ${ue_id}
     ${body}=    Create Dictionary    bearer_id=${bearer_id}
     POST On Session    epc    /ues/${ue_id}/bearers    json=${body}    expected_status=any
 
+Start traffic on UE ${ue_id} bearer ${bearer_id}
+    [Documentation]    Uruchamia transfer na bearerze (helper do przygotowania stanu).
+    ${body}=    Create Dictionary    protocol=${VALID_PROTOCOL}    Mbps=${VALID_MBPS}
+    POST On Session    epc    /ues/${ue_id}/bearers/${bearer_id}/traffic
+    ...    json=${body}    expected_status=any
+
 Delete bearer ${bearer_id} from UE ${ue_id}
     [Documentation]    Wysyła DELETE /ues/{ue_id}/bearers/{bearer_id} i zapisuje odpowiedź w ${LAST_RESPONSE}.
     ${response}=    DELETE On Session    epc    /ues/${ue_id}/bearers/${bearer_id}    expected_status=any
@@ -134,9 +140,3 @@ Deleting bearer ${bearer_id} from UE ${ue_id} should be rejected with message "$
     [Documentation]    Jak wyżej, ale dodatkowo sprawdza fragment komunikatu błędu.
     Deleting bearer ${bearer_id} from UE ${ue_id} should be rejected
     Should Contain    ${LAST_RESPONSE.text}    ${substring}
-
-Start traffic on UE ${ue_id} bearer ${bearer_id}
-    [Documentation]    Uruchamia transfer na bearerze (helper do przygotowania stanu).
-    ${body}=    Create Dictionary    protocol=${VALID_PROTOCOL}    Mbps=${VALID_MBPS}
-    POST On Session    epc    /ues/${ue_id}/bearers/${bearer_id}/traffic
-    ...    json=${body}    expected_status=any
