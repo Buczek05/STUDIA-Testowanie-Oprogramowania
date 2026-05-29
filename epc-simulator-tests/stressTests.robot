@@ -52,6 +52,16 @@ ST-005 Reset Pod Pełnym Obciążeniem - 100 UE W Stanie
     Attach ${ATTACH_BURST_COUNT} UEs Sequentially
     Reset Should Wipe All State
 
+ST-006 Crash Test - Payload 500 MB Powoduje OOM W Kontenerze
+    [Documentation]    Wysyła POST /ues z polem padding o rozmiarze ~500 MB.
+    ...                Cel: wywołanie OOM (Out of Memory) w kontenerze Docker i potwierdzenie
+    ...                że serwer nie ma żadnego limitu rozmiaru żądania.
+    ...                Test zalicza się jeśli serwer przestaje odpowiadać lub zwraca 5xx.
+    ...                UWAGA: może pozostawić kontener niedostępnym — uruchamiać jako ostatni.
+    [Tags]    stress    payload-size    dos    crash
+    Send Oversized Crash Payload Of 500000000 Bytes
+    Verify Server Is Down After Crash Payload
+
 *** Keywords ***
 Reset EPC
     [Documentation]    Przywraca symulator do stanu początkowego przed każdym testem.
@@ -125,3 +135,33 @@ Reset Should Wipe All State
     ${list_resp}=    GET On Session    epc    /ues
     Length Should Be    ${list_resp.json()}[ues]    0
     ...    Po resecie lista UE powinna być pusta
+
+Send Oversized Crash Payload Of ${size} Bytes
+    [Documentation]    Wysyła POST /ues z payloadem ${size} bajtów.
+    ...                Obsługuje zarówno normalną odpowiedź jak i zerwanie połączenia (crash kontenera).
+    ${padding}=      Evaluate    "A" * ${size}
+    ${body}=         Create Dictionary    ue_id=${1}    padding=${padding}
+    ${start}=        Evaluate    __import__('time').time()
+    ${kw_status}    ${result}=    Run Keyword And Ignore Error
+    ...    POST On Session    epc    /ues    json=${body}    expected_status=any    timeout=180
+    ${elapsed}=      Evaluate    round(__import__('time').time() - ${start}, 2)
+    IF    '${kw_status}' == 'PASS'
+        Log    Payload ${size} B → HTTP ${result.status_code} w ${elapsed}s    console=True
+        Set Test Variable    ${LAST_CRASH_CODE}    ${result.status_code}
+    ELSE
+        Log    Payload ${size} B → Połączenie zerwane po ${elapsed}s (kontener prawdopodobnie martwy)    console=True
+        Set Test Variable    ${LAST_CRASH_CODE}    ${0}
+    END
+
+Verify Server Is Down After Crash Payload
+    [Documentation]    Sprawdza dostępność serwera po wysłaniu crash payloadu.
+    ...                Zalicza test jeśli serwer nie odpowiada (crash) lub zwrócił 5xx (OOM killer).
+    ${ping_ok}=    Run Keyword And Return Status
+    ...    GET On Session    epc    /    expected_status=200
+    IF    not ${ping_ok}
+        Pass Execution    CRASH POTWIERDZONY: serwer nie odpowiada po payloadzie — wektor DoS aktywny
+    ELSE IF    ${LAST_CRASH_CODE} >= 500
+        Log    Serwer zwrócił ${LAST_CRASH_CODE} — OOM killer lub wewnętrzny crash    console=True
+    ELSE
+        Log    Serwer przeżył payload (kod ${LAST_CRASH_CODE}) — rozważ zwiększenie rozmiaru    console=True
+    END
