@@ -12,6 +12,7 @@ Test Setup       Reset EPC
 ${BASE_URL}              http://localhost:8000
 ${VALID_UE_ID}           ${50}
 ${DEFAULT_BEARER_ID}     ${9}
+${DEDICATED_BEARER_ID}   ${1}
 ${INACTIVE_BEARER_ID}    ${5}
 ${UNATTACHED_UE_ID}      ${77}
 ${VALID_MBPS}            ${50}
@@ -82,6 +83,37 @@ T-028 Checking traffic of a single inactive bearer is rejected
     [Tags]    check-transfer    bearer    error
     Attach UE ${VALID_UE_ID}
     Getting traffic of UE ${VALID_UE_ID} bearer ${INACTIVE_BEARER_ID} should be rejected
+
+T-029 Checking traffic of an existing bearer with no transfer history is rejected
+    [Documentation]    Akcja: sprawdzenie statystyk transferu bearera 9, który istnieje (tworzony
+    ...                automatycznie przy attach), ale nigdy nie miał uruchomionej sesji transferu.
+    ...                Oczekiwane: błąd - brak historii transferu powinien skutkować 404.
+    [Tags]    check-transfer    bearer    error
+    Attach UE ${VALID_UE_ID}
+    Getting traffic of UE ${VALID_UE_ID} bearer ${DEFAULT_BEARER_ID} should be rejected
+
+T-078 Aggregated stats bearer_count reflects all configured bearers not only active transfers
+    [Documentation]    Akcja: podłączenie UE (bearer 9 tworzony automatycznie) i dodanie dedykowanego
+    ...                bearera, następnie sprawdzenie GET /ues/stats bez uruchamiania transferu.
+    ...                Oczekiwane: bearer_count = 2 — pole powinno zliczać skonfigurowane bearery,
+    ...                nie aktywne sesje transferu.
+    [Tags]    check-transfer    stats
+    Attach UE ${VALID_UE_ID}
+    Add bearer ${DEDICATED_BEARER_ID} to UE ${VALID_UE_ID}
+    Get aggregated stats for all UEs
+    Aggregated stats bearer_count should be    2
+
+T-079 Duration resets to zero when traffic is restarted on the same bearer
+    [Documentation]    Akcja: uruchomienie transferu, odczekanie 2 sekund, zatrzymanie, ponowne
+    ...                uruchomienie na tym samym bearerze, odczekanie 1 sekundy, sprawdzenie duration.
+    ...                Oczekiwane: duration < 2s — pole powinno być resetowane przy każdym nowym starcie,
+    ...                mierząc wyłącznie czas bieżącej sesji.
+    [Tags]    check-transfer    stats
+    Attach UE ${VALID_UE_ID}
+    Run traffic session for 2s on UE ${VALID_UE_ID} bearer ${DEFAULT_BEARER_ID}
+    Restart traffic on UE ${VALID_UE_ID} bearer ${DEFAULT_BEARER_ID} and wait 1s
+    Get traffic of UE ${VALID_UE_ID} bearer ${DEFAULT_BEARER_ID}
+    Duration should be reset after restart
 
 *** Keywords ***
 Reset EPC
@@ -176,3 +208,38 @@ Getting aggregated stats for UE ${ue_id} should be rejected with message "${subs
     [Documentation]    Jak wyżej, ale dodatkowo sprawdza fragment komunikatu błędu.
     Getting aggregated stats for UE ${ue_id} should be rejected
     Should Contain    ${LAST_RESPONSE.text}    ${substring}
+
+Add bearer ${bearer_id} to UE ${ue_id}
+    [Documentation]    Dodaje dedykowany bearer do UE (helper do przygotowania stanu).
+    ${body}=    Create Dictionary    bearer_id=${bearer_id}
+    POST On Session    epc    /ues/${ue_id}/bearers    json=${body}    expected_status=any
+
+Run traffic session for ${seconds}s on UE ${ue_id} bearer ${bearer_id}
+    [Documentation]    Uruchamia transfer, odczekuje ${seconds} sekund i zatrzymuje.
+    ${body}=    Create Dictionary    protocol=${VALID_PROTOCOL}    Mbps=${VALID_MBPS}
+    POST On Session    epc    /ues/${ue_id}/bearers/${bearer_id}/traffic
+    ...    json=${body}    expected_status=any
+    Sleep    ${seconds}s
+    DELETE On Session    epc    /ues/${ue_id}/bearers/${bearer_id}/traffic    expected_status=any
+
+Restart traffic on UE ${ue_id} bearer ${bearer_id} and wait 1s
+    [Documentation]    Ponownie uruchamia transfer i odczekuje 1 sekundę — po tym czasie
+    ...                duration powinno wynosić ~1s jeśli pole jest poprawnie resetowane.
+    ${body}=    Create Dictionary    protocol=${VALID_PROTOCOL}    Mbps=${VALID_MBPS}
+    POST On Session    epc    /ues/${ue_id}/bearers/${bearer_id}/traffic
+    ...    json=${body}    expected_status=any
+    Sleep    1s
+
+Aggregated stats bearer_count should be
+    [Documentation]    Weryfikuje, że pole bearer_count w GET /ues/stats ma oczekiwaną wartość.
+    [Arguments]    ${expected_count}
+    Status Should Be               200    ${LAST_RESPONSE}
+    Should Be Equal As Integers    ${LAST_RESPONSE.json()}[bearer_count]    ${expected_count}
+
+Duration should be reset after restart
+    [Documentation]    Weryfikuje, że duration < 2s po zaledwie 1s drugiej sesji.
+    ...                Jeśli duration >= 2, oznacza to że czas poprzedniej sesji się akumuluje.
+    Status Should Be    200    ${LAST_RESPONSE}
+    ${duration}=    Set Variable    ${LAST_RESPONSE.json()}[duration]
+    Should Be True    ${duration} < 2
+    ...    duration=${duration}s powinna wynosić ~1s po restarcie (oczekiwano < 2s)

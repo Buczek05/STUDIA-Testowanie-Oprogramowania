@@ -18,6 +18,8 @@ ${DEDICATED_BEARER_ID}     ${3}
 ${BEARER_ABOVE_RANGE}      ${10}
 ${BEARER_BELOW_RANGE}      ${0}
 ${UNATTACHED_UE_ID}        ${77}
+${VALID_MBPS}              ${50}
+${VALID_PROTOCOL}          tcp
 
 *** Test Cases ***
 T-060 Deleting an added dedicated bearer returns status bearer_deleted
@@ -74,6 +76,16 @@ T-066 Deleting a bearer on an unattached UE is rejected
     [Tags]    delete-bearer    error
     Deleting bearer ${DEDICATED_BEARER_ID} from UE ${UNATTACHED_UE_ID} should be rejected with message "UE not found"
 
+T-067 Deleting a bearer with an active transfer is rejected
+    [Documentation]    Akcja: uruchomienie transferu na dedykowanym bearerze, następnie próba jego usunięcia.
+    ...                Oczekiwane: błąd - nie można usunąć bearera z aktywną sesją transferu,
+    ...                transfer powinien zostać najpierw zatrzymany.
+    [Tags]    delete-bearer    error
+    Attach UE ${VALID_UE_ID}
+    Add bearer ${DEDICATED_BEARER_ID} to UE ${VALID_UE_ID}
+    Start traffic on UE ${VALID_UE_ID} bearer ${DEDICATED_BEARER_ID}
+    Deleting bearer ${DEDICATED_BEARER_ID} from UE ${VALID_UE_ID} should be rejected
+
 *** Keywords ***
 Reset EPC
     [Documentation]    Przywraca symulator do stanu początkowego przed każdym testem.
@@ -122,3 +134,9 @@ Deleting bearer ${bearer_id} from UE ${ue_id} should be rejected with message "$
     [Documentation]    Jak wyżej, ale dodatkowo sprawdza fragment komunikatu błędu.
     Deleting bearer ${bearer_id} from UE ${ue_id} should be rejected
     Should Contain    ${LAST_RESPONSE.text}    ${substring}
+
+Start traffic on UE ${ue_id} bearer ${bearer_id}
+    [Documentation]    Uruchamia transfer na bearerze (helper do przygotowania stanu).
+    ${body}=    Create Dictionary    protocol=${VALID_PROTOCOL}    Mbps=${VALID_MBPS}
+    POST On Session    epc    /ues/${ue_id}/bearers/${bearer_id}/traffic
+    ...    json=${body}    expected_status=any

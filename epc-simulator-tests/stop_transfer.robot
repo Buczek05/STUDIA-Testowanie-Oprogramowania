@@ -70,6 +70,17 @@ T-035 Stopping traffic for all bearers of a UE returns success
     Stop all traffic on UE ${VALID_UE_ID}
     Stop-all response for UE ${VALID_UE_ID} should succeed
 
+T-036 Stopping traffic clears the transfer statistics
+    [Documentation]    Akcja: uruchomienie transferu, zatrzymanie go, następnie sprawdzenie statystyk bearera.
+    ...                Oczekiwane: po zatrzymaniu pola protocol i target_bps powinny być null —
+    ...                dane poprzedniej sesji nie powinny być widoczne po zakończeniu transferu.
+    [Tags]    stop-transfer    state
+    Attach UE ${VALID_UE_ID}
+    Start traffic on UE ${VALID_UE_ID} bearer ${DEFAULT_BEARER_ID}
+    Stop traffic on UE ${VALID_UE_ID} bearer ${DEFAULT_BEARER_ID}
+    Get traffic stats for UE ${VALID_UE_ID} bearer ${DEFAULT_BEARER_ID}
+    Traffic stats protocol and target_bps should be null
+
 *** Keywords ***
 Reset EPC
     [Documentation]    Przywraca symulator do stanu początkowego przed każdym testem.
@@ -128,3 +139,14 @@ Stopping traffic on UE ${ue_id} bearer ${bearer_id} should be rejected with mess
     [Documentation]    Jak wyżej, ale dodatkowo sprawdza fragment komunikatu błędu.
     Stopping traffic on UE ${ue_id} bearer ${bearer_id} should be rejected
     Should Contain    ${LAST_RESPONSE.text}    ${substring}
+
+Get traffic stats for UE ${ue_id} bearer ${bearer_id}
+    [Documentation]    Wysyła GET /ues/{ue_id}/bearers/{bearer_id}/traffic i zapisuje odpowiedź w ${LAST_RESPONSE}.
+    ${response}=    GET On Session    epc    /ues/${ue_id}/bearers/${bearer_id}/traffic    expected_status=any
+    Set Test Variable    ${LAST_RESPONSE}    ${response}
+
+Traffic stats protocol and target_bps should be null
+    [Documentation]    Weryfikuje, że po zatrzymaniu transferu pola protocol i target_bps są null.
+    Status Should Be    200    ${LAST_RESPONSE}
+    Should Be Equal    ${LAST_RESPONSE.json()}[protocol]      ${None}
+    Should Be Equal    ${LAST_RESPONSE.json()}[target_bps]    ${None}

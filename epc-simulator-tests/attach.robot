@@ -43,6 +43,14 @@ T-076 Attach UE With ID 0 From Spec Range Succeeds
     Attach UE-0
     Verify Attach Succeeded-0
 
+T-077 Attach With Boolean True As ue_id Is Rejected
+    [Documentation]    Akcja: próba attach UE z wartością boolowską true jako ue_id.
+    ...                Oczekiwane: błąd 422 - wartości boolowskie nie są poprawnymi identyfikatorami UE,
+    ...                pole ue_id przyjmuje wyłącznie liczby całkowite.
+    [Tags]    attach    validation
+    Attach UE With Boolean True
+    Verify Boolean Attach Was Rejected
+
 *** Keywords ***
 Reset EPC
     [Documentation]    Przywraca symulator do stanu początkowego przed każdym testem.
@@ -83,3 +91,14 @@ Verify Attach Was Rejected With Message-${ue_id}
     [Arguments]    ${substring}
     Verify Attach was Rejected-${ue_id}
     Should Contain    ${LAST_RESPONSE.text}    ${substring}
+
+Attach UE With Boolean True
+    [Documentation]    Wysyła POST /ues z ue_id ustawionym na wartość boolowską true.
+    ${body}=    Create Dictionary    ue_id=${True}
+    ${response}=    POST On Session    epc    /ues    json=${body}    expected_status=any
+    Set Test Variable    ${LAST_RESPONSE}    ${response}
+
+Verify Boolean Attach Was Rejected
+    [Documentation]    Weryfikuje, że API odrzuciło żądanie z boolean jako ue_id (status >= 400).
+    Should Be True    ${LAST_RESPONSE.status_code} >= 400
+    ...    Attach z boolean ue_id powinien zostać odrzucony, a API zwróciło ${LAST_RESPONSE.status_code}
