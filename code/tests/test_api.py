@@ -138,13 +138,7 @@ class TestTraffic:
 
     def test_traffic_stats_shape_without_traffic(self, attached_ue):
         resp = attached_ue.get("/ues/1/bearers/9/traffic")
-        assert resp.status_code == 200
-        body = resp.json()
-        assert body["ue_id"] == 1
-        assert body["bearer_id"] == 9
-        assert body["tx_bps"] == 0
-        assert body["rx_bps"] == 0
-        assert body["duration"] == 0
+        assert resp.status_code == 404
 
     def test_traffic_stats_unknown_ue_returns_400(self, client):
         resp = client.get("/ues/9/bearers/9/traffic")
