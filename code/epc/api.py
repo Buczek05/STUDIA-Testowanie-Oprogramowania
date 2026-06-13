@@ -55,6 +55,11 @@ def get_ues_stats(
             if ue_id is not None:
                 raise HTTPException(status_code=400, detail="UE not found")
             continue
+        # BUG-5 fix: count configured bearers, not just ones with stats
+        # (fixes test_bugs.py::TestBug5BearerCountCountsTraffic::test_bearer_count_reflects_configured_bearers)
+        bearer_count += len(state.bearers)
+        
+        # ************************************************************************
         for b_id, stats in state.stats.items():
             end_ts = time.time() if (stats.start_ts and tm.is_running(uid, b_id)) else stats.last_update_ts
             duration = (end_ts - stats.start_ts) if (stats.start_ts and end_ts is not None) else 0
@@ -62,7 +67,6 @@ def get_ues_stats(
             rx_bps = int(stats.bytes_rx * 8 / duration) if duration > 0 else 0
             total_tx += tx_bps
             total_rx += rx_bps
-            bearer_count += 1
             if include_details:
                 details.setdefault(str(uid), {})[str(b_id)] = tx_bps
     scope = f"ue:{ue_id}" if ue_id is not None else "all"
@@ -136,8 +140,12 @@ def delete_bearer(
     if bearer_id not in state.bearers:
         raise HTTPException(status_code=400, detail="Bearer not found")
     tm = get_traffic_manager(repo)
+    # BUG-8 fix: refuse to delete a bearer with active traffic instead of
+    # silently stopping it first
+    # (fixes test_bugs.py::TestBug8DeleteBearerWithActiveTraffic::test_delete_bearer_with_traffic_should_fail)
     if tm.is_running(ue_id, bearer_id):
-        tm.stop(ue_id, bearer_id)
+        raise HTTPException(status_code=400, detail="Stop traffic before deleting bearer")
+    # *************************************************************************************
     try:
         repo.delete_bearer(ue_id, bearer_id)
     except ValueError as e:
@@ -168,16 +176,19 @@ def start_traffic(
     repo.update_bearer(ue_id, bearer)
     from .models import ThroughputStats
 
-    if bearer_id not in state.stats:
-        initial_stats = ThroughputStats(
-            bearer_id=bearer_id,
-            ue_id=ue_id,
-            start_ts=time.time(),
-            last_update_ts=time.time(),
-            protocol=bearer.protocol,
-            target_bps=target_bps,
-        )
-        repo.update_stats(ue_id, initial_stats)
+    # BUG-10 fix: always start a fresh measurement session so start_ts resets
+    # on restart instead of keeping the value from a previous session
+    # (fixes test_bugs.py::TestBug10DurationAccumulates::test_start_ts_reset_on_restart)
+    fresh_stats = ThroughputStats(
+        bearer_id=bearer_id,
+        ue_id=ue_id,
+        start_ts=time.time(),
+        last_update_ts=time.time(),
+        protocol=bearer.protocol,
+        target_bps=target_bps,
+    )
+    repo.update_stats(ue_id, fresh_stats)
+    #***************************************************************************************
     tm = get_traffic_manager(repo)
     try:
         tm.start(ue_id, bearer)
@@ -205,9 +216,27 @@ def stop_traffic(
     if not bearer:
         raise HTTPException(status_code=400, detail="Bearer not found")
     tm = get_traffic_manager(repo)
+    # BUG-1 fix: stopping traffic that was never started is an error, not a no-op
+    # (fixes test_bugs.py::TestBug1StopTrafficWithoutSession::test_stop_without_active_traffic_should_fail)
+    if not tm.is_running(ue_id, bearer_id):
+        raise HTTPException(status_code=400, detail="Traffic not running for this bearer")
+    # *********************************************************************************************************
     tm.stop(ue_id, bearer_id)
     bearer.active = False
     repo.update_bearer(ue_id, bearer)
+
+    # BUG-3 fix: clear stale protocol/target_bps (and counters/timestamps) after stop
+    # (fixes test_bugs.py::TestBug3StaleStatsAfterStop::test_protocol_and_bps_cleared_after_stop)
+    stats = state.stats.get(bearer_id)
+    if stats:
+        stats.protocol = None
+        stats.target_bps = None
+        stats.bytes_tx = 0
+        stats.bytes_rx = 0
+        stats.start_ts = None
+        stats.last_update_ts = None
+        repo.update_stats(ue_id, stats)
+    #*******************************************************************************************************
     return TrafficStopResponse(status="traffic_stopped", ue_id=ue_id, bearer_id=bearer_id)
 
 
@@ -221,17 +250,12 @@ def get_traffic_stats(
         state = repo.get_ue(ue_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    # BUG-2 fix: no traffic history for this bearer -> 404 instead of 200 with zeros
+    # (fixes test_bugs.py::TestBug2StatsWithoutHistory::test_get_stats_no_history_should_return_404)
     stats = state.stats.get(bearer_id)
     if not stats:
-        return TrafficStatsResponse(
-            ue_id=ue_id,
-            bearer_id=bearer_id,
-            protocol=None,
-            target_bps=None,
-            tx_bps=0,
-            rx_bps=0,
-            duration=0,
-        )
+        raise HTTPException(status_code=404, detail="No traffic history for this bearer")
+    # *******************************************************************************************************
     tm = get_traffic_manager(repo)
     end_ts = time.time() if (stats.start_ts and tm.is_running(ue_id, bearer_id)) else stats.last_update_ts
     duration = (end_ts - stats.start_ts) if (stats.start_ts and end_ts is not None) else 0
