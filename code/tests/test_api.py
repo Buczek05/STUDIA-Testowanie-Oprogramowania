@@ -35,7 +35,7 @@ class TestUELifecycle:
         assert resp.status_code == 400
         assert resp.json()["detail"] == "UE already attached"
 
-    @pytest.mark.parametrize("uid", [0, 101, -1])
+    @pytest.mark.parametrize("uid", [101, -1, 200])
     def test_attach_out_of_range_returns_422(self, client, uid):
         resp = client.post("/ues", json={"ue_id": uid})
         assert resp.status_code == 422

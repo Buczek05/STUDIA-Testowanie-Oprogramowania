@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from .models import (
     AddBearerRequest,
-    AggregatedStatsResponse,
     AttachResponse,
     AttachUERequest,
     BearerAddResponse,
@@ -34,12 +33,21 @@ def get_repo() -> EPCRepository:
     return _repo_singleton
 
 
-@router.get("/ues/stats", response_model=AggregatedStatsResponse)
+# T-027 fix: aggregated stats accept a `unit` parameter (default kbps per spec)
+# and report values under total_tx_<unit> / total_rx_<unit> keys
+# (fixes test_bugs.py::TestBug27AggregatedStatsDefaultUnit)
+_UNIT_DIVISORS = {"bps": 1, "kbps": 1_000, "Mbps": 1_000_000}
+
+
+@router.get("/ues/stats")
 def get_ues_stats(
     repo: Annotated[EPCRepository, Depends(get_repo)],
     ue_id: int | None = None,
     include_details: bool = False,
+    unit: str = "kbps",
 ):
+    if unit not in _UNIT_DIVISORS:
+        raise HTTPException(status_code=400, detail="Unsupported unit")
     if ue_id is not None and not repo.ue_exists(ue_id):
         raise HTTPException(status_code=400, detail="UE not found")
     ues = [ue_id] if ue_id is not None else list(repo.list_ues())
@@ -58,8 +66,7 @@ def get_ues_stats(
         # BUG-5 fix: count configured bearers, not just ones with stats
         # (fixes test_bugs.py::TestBug5BearerCountCountsTraffic::test_bearer_count_reflects_configured_bearers)
         bearer_count += len(state.bearers)
-        
-        # ************************************************************************
+
         for b_id, stats in state.stats.items():
             end_ts = time.time() if (stats.start_ts and tm.is_running(uid, b_id)) else stats.last_update_ts
             duration = (end_ts - stats.start_ts) if (stats.start_ts and end_ts is not None) else 0
@@ -70,14 +77,17 @@ def get_ues_stats(
             if include_details:
                 details.setdefault(str(uid), {})[str(b_id)] = tx_bps
     scope = f"ue:{ue_id}" if ue_id is not None else "all"
-    return AggregatedStatsResponse(
-        scope=scope,
-        ue_count=len(ues),
-        bearer_count=bearer_count,
-        total_tx_bps=total_tx,
-        total_rx_bps=total_rx,
-        details=details if include_details else None,
-    )
+    divisor = _UNIT_DIVISORS[unit]
+    response: dict = {
+        "scope": scope,
+        "ue_count": len(ues),
+        "bearer_count": bearer_count,
+        f"total_tx_{unit}": total_tx // divisor,
+        f"total_rx_{unit}": total_rx // divisor,
+    }
+    if include_details:
+        response["details"] = details
+    return response
 
 
 @router.get("/ues", response_model=UEListResponse)
@@ -216,11 +226,16 @@ def stop_traffic(
     if not bearer:
         raise HTTPException(status_code=400, detail="Bearer not found")
     tm = get_traffic_manager(repo)
-    # BUG-1 fix: stopping traffic that was never started is an error, not a no-op
-    # (fixes test_bugs.py::TestBug1StopTrafficWithoutSession::test_stop_without_active_traffic_should_fail)
+    # BUG-1 fix: stopping a bearer that never ran a session is an error.
+    # T-032 fix: but a second stop on a bearer that DID run before is idempotent
+    # (it has a stats entry from the previous session) and returns 200.
+    # (fixes test_bugs.py::TestBug1StopTrafficWithoutSession and ::TestBug32IdempotentStop)
     if not tm.is_running(ue_id, bearer_id):
-        raise HTTPException(status_code=400, detail="Traffic not running for this bearer")
-    # *********************************************************************************************************
+        if bearer_id not in state.stats:
+            raise HTTPException(status_code=400, detail="Traffic not running for this bearer")
+        bearer.active = False
+        repo.update_bearer(ue_id, bearer)
+        return TrafficStopResponse(status="traffic_stopped", ue_id=ue_id, bearer_id=bearer_id)
     tm.stop(ue_id, bearer_id)
     bearer.active = False
     repo.update_bearer(ue_id, bearer)
@@ -238,6 +253,35 @@ def stop_traffic(
         repo.update_stats(ue_id, stats)
     #*******************************************************************************************************
     return TrafficStopResponse(status="traffic_stopped", ue_id=ue_id, bearer_id=bearer_id)
+
+
+# T-035 fix: stop traffic on all bearers of a UE (no bearer ID)
+# (fixes test_bugs.py::TestBug35StopAllBearers)
+@router.delete("/ues/{ue_id}/traffic", response_model=StatusResponse)
+def stop_all_traffic(
+    ue_id: int,
+    repo: Annotated[EPCRepository, Depends(get_repo)],
+):
+    try:
+        state = repo.get_ue(ue_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    tm = get_traffic_manager(repo)
+    for bearer_id, bearer in state.bearers.items():
+        if tm.is_running(ue_id, bearer_id):
+            tm.stop(ue_id, bearer_id)
+        bearer.active = False
+        stats = state.stats.get(bearer_id)
+        if stats:
+            stats.protocol = None
+            stats.target_bps = None
+            stats.bytes_tx = 0
+            stats.bytes_rx = 0
+            stats.start_ts = None
+            stats.last_update_ts = None
+            repo.update_stats(ue_id, stats)
+    repo.save_ue(state)
+    return StatusResponse(status="traffic_stopped")
 
 
 @router.get("/ues/{ue_id}/bearers/{bearer_id}/traffic", response_model=TrafficStatsResponse)

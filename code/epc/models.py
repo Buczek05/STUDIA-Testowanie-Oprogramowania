@@ -20,7 +20,7 @@ class ThroughputStats(BaseModel):
 
 
 class UEState(BaseModel):
-    ue_id: int = Field(ge=1, le=100)
+    ue_id: int = Field(ge=0, le=100)
     bearers: dict[int, BearerConfig] = {}
     stats: dict[int, ThroughputStats] = {}
 
@@ -35,7 +35,9 @@ class UEState(BaseModel):
 
 # Request body schemas (REST API)
 class AttachUERequest(BaseModel):
-    ue_id: int = Field(ge=1, le=100)
+    # T-059 fix: spec defines the UE range as 0-100, so ID 0 is valid
+    # (fixes test_bugs.py::TestBug59AttachUeIdZero)
+    ue_id: int = Field(ge=0, le=100)
 
     # BUG-4 fix: reject bool values for ue_id (bool is a subclass of int in
     # Python and would otherwise be silently accepted)
@@ -71,6 +73,11 @@ class StartTrafficRequest(BaseModel):
         provided = [v for v in [self.Mbps, self.kbps, self.bps] if v is not None]
         if len(provided) != 1:
             raise ValueError("Provide exactly one throughput value (Mbps, kbps, or bps)")
+        # T-016 fix: reject negative throughput (zero stays allowed here and is
+        # rejected later by the traffic manager with "not configured")
+        # (fixes test_bugs.py::TestBug16NegativeMbps)
+        if self.target_bps() < 0:
+            raise ValueError("Throughput must not be negative")
         # BUG-13 fix: enforce a 100 Mbps bandwidth limit regardless of unit used
         # (fixes test_bugs.py::TestBug13NoBandwidthLimit::test_model_rejects_over_limit
         #  and ::test_api_rejects_over_limit)

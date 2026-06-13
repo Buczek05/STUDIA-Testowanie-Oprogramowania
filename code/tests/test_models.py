@@ -36,11 +36,11 @@ class TestBearerConfig:
 
 
 class TestUEState:
-    @pytest.mark.parametrize("uid", [1, 50, 100])
+    @pytest.mark.parametrize("uid", [0, 1, 50, 100])
     def test_valid_ue_id(self, uid):
         assert UEState(ue_id=uid).ue_id == uid
 
-    @pytest.mark.parametrize("uid", [0, 101, -5])
+    @pytest.mark.parametrize("uid", [101, -1, -5])
     def test_ue_id_out_of_range(self, uid):
         with pytest.raises(ValidationError):
             UEState(ue_id=uid)
@@ -104,7 +104,7 @@ class TestStartTrafficRequest:
 
 
 class TestRequestSchemas:
-    @pytest.mark.parametrize("uid", [0, 101])
+    @pytest.mark.parametrize("uid", [-1, 101])
     def test_attach_ue_range(self, uid):
         with pytest.raises(ValidationError):
             AttachUERequest(ue_id=uid)

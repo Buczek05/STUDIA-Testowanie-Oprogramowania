@@ -143,3 +143,97 @@ class TestBug13NoBandwidthLimit:
         assert resp.status_code >= 400, (
             f"Mbps > 100 powinno dać 4xx, otrzymano {resp.status_code}"
         )
+
+
+class TestBug16NegativeMbps:
+    """T-016: start transferu z ujemną wartością Mbps powinien być odrzucony —
+    przepustowość ujemna jest spoza zakresu. Zero pozostaje obsługiwane osobno
+    (odrzucane przez menedżera ruchu z komunikatem "not configured")."""
+
+    def test_model_rejects_negative_mbps(self):
+        from epc.models import StartTrafficRequest
+
+        with pytest.raises(ValidationError):
+            StartTrafficRequest(protocol="tcp", Mbps=-1)
+
+    def test_api_rejects_negative_mbps(self, attached_ue):
+        resp = attached_ue.post(
+            "/ues/1/bearers/9/traffic", json={"protocol": "tcp", "Mbps": -1}
+        )
+        assert resp.status_code >= 400, (
+            f"ujemne Mbps powinno dać 4xx, otrzymano {resp.status_code}"
+        )
+
+    def test_api_still_accepts_zero_via_not_configured(self, attached_ue):
+        # 0 nie jest błędem walidacji modelu — odrzuca je menedżer ruchu.
+        resp = attached_ue.post(
+            "/ues/1/bearers/9/traffic", json={"protocol": "tcp", "Mbps": 0}
+        )
+        assert resp.status_code == 400
+        assert "not configured" in resp.text
+
+
+class TestBug27AggregatedStatsDefaultUnit:
+    """T-027: /ues/stats powinno przyjmować parametr unit (domyślnie kbps) i
+    raportować wartości pod kluczami total_tx_<unit> / total_rx_<unit>."""
+
+    def test_explicit_kbps_unit(self, attached_ue):
+        body = attached_ue.get("/ues/stats", params={"unit": "kbps"}).json()
+        assert "total_tx_kbps" in body
+        assert "total_rx_kbps" in body
+
+    def test_default_unit_is_kbps(self, attached_ue):
+        body = attached_ue.get("/ues/stats").json()
+        assert "total_tx_kbps" in body
+        assert "total_rx_kbps" in body
+
+
+class TestBug32IdempotentStop:
+    """T-032 (regresja po fixie BUG-1): dwukrotny stop na bearerze, który miał
+    transfer, powinien być idempotentny — drugi stop też zwraca 200.
+
+    Jednocześnie BUG-1 musi nadal działać: stop bearera, który nigdy nie miał
+    transferu, pozostaje błędem (sprawdzane w TestBug1StopTrafficWithoutSession)."""
+
+    def test_second_stop_is_idempotent(self, attached_ue):
+        attached_ue.post(
+            "/ues/1/bearers/9/traffic", json={"protocol": "tcp", "Mbps": 10}
+        )
+        first = attached_ue.delete("/ues/1/bearers/9/traffic")
+        assert first.status_code == 200
+        second = attached_ue.delete("/ues/1/bearers/9/traffic")
+        assert second.status_code == 200, (
+            f"drugi stop powinien być idempotentny (200), otrzymano {second.status_code}"
+        )
+        assert second.json()["status"] == "traffic_stopped"
+
+
+class TestBug35StopAllBearers:
+    """T-035: DELETE /ues/{ue_id}/traffic (bez bearer ID) powinno zakończyć
+    transfer na wszystkich bearerach UE i zwrócić sukces (200)."""
+
+    def test_stop_all_returns_success(self, attached_ue):
+        attached_ue.post(
+            "/ues/1/bearers/9/traffic", json={"protocol": "tcp", "Mbps": 10}
+        )
+        resp = attached_ue.delete("/ues/1/traffic")
+        assert resp.status_code == 200, (
+            f"stop-all powinno zwrócić 200, otrzymano {resp.status_code}"
+        )
+
+
+class TestBug59AttachUeIdZero:
+    """T-059: wg specyfikacji zakres UE to 0-100, więc attach UE o ID 0 powinien
+    się powieść."""
+
+    def test_model_accepts_ue_id_zero(self):
+        from epc.models import AttachUERequest
+
+        assert AttachUERequest(ue_id=0).ue_id == 0
+
+    def test_api_accepts_ue_id_zero(self, client):
+        resp = client.post("/ues", json={"ue_id": 0})
+        assert resp.status_code == 200, (
+            f"UE ID 0 powinno być zaakceptowane wg spec, otrzymano {resp.status_code}"
+        )
+        assert resp.json() == {"status": "attached", "ue_id": 0}
