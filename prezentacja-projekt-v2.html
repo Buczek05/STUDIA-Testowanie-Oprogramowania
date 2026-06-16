@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Projekt: Testowanie symulatora EPC — prezentacja</title>
+<style>
+  :root{
+    --bg:#0c1118; --bg2:#131b27; --txt:#e9edf4; --muted:#94a2ba;
+    --accent:#54b9ff; --green:#3ecf8e; --red:#ff6b6b; --amber:#ffc857;
+    --line:#243044; --code:#080d14; --click:#ffd166; --purple:#b08bff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--txt);overflow:hidden}
+  #deck{height:100vh;width:100vw;position:relative}
+  .slide{position:absolute;inset:0;display:none;flex-direction:column;justify-content:center;padding:5.5vh 8vw;animation:fade .35s ease}
+  .slide.active{display:flex}
+  @keyframes fade{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  h1{font-size:44px;margin:0 0 10px;line-height:1.12}
+  h2{font-size:31px;margin:0 0 16px;line-height:1.15}
+  h3{font-size:20px}
+  p,li{font-size:20px;line-height:1.5}
+  .muted{color:var(--muted)}
+  .lead{font-size:23px;color:var(--muted);max-width:64ch}
+  ul,ol{margin:6px 0;padding-left:24px}
+  li{margin:7px 0}
+  code,.mono{font-family:ui-monospace,Menlo,monospace}
+  pre{background:var(--code);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:14px 18px;font-size:16px;overflow:auto;margin:10px 0;line-height:1.45}
+  pre .c{color:#6b7689}pre .o{color:var(--green)}pre .k{color:var(--accent)}
+  .click{background:rgba(255,209,102,.14);border:1px solid rgba(255,209,102,.4);color:var(--click);padding:1px 8px;border-radius:7px;font-weight:600;white-space:nowrap}
+  .key{display:inline-block;background:var(--bg2);border:1px solid var(--line);border-bottom-width:3px;border-radius:6px;padding:1px 8px;font-family:ui-monospace,monospace;font-size:15px}
+  .row{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap}
+  .col{flex:1;min-width:260px}
+  .card{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:14px 20px}
+  .ok{color:var(--green)}.bad{color:var(--red)}.warn{color:var(--amber)}.pur{color:var(--purple)}.acc{color:var(--accent)}
+  .big{font-size:54px;font-weight:800;letter-spacing:-1px;line-height:1}
+  .tag{font-size:14px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;margin-bottom:10px;color:var(--accent)}
+  table{border-collapse:collapse;width:100%;font-size:16px;margin-top:8px}
+  td,th{border:1px solid var(--line);padding:7px 11px;text-align:left;vertical-align:top}
+  th{color:var(--muted);font-weight:600;background:var(--bg2)}
+  a{color:var(--accent)}
+  .pill{display:inline-block;font-size:13px;padding:3px 10px;border-radius:20px;margin-bottom:10px;font-weight:600}
+  .pill.a{color:var(--accent);border:1px solid rgba(84,185,255,.4);background:rgba(84,185,255,.12)}
+  .pill.p{color:var(--purple);border:1px solid rgba(176,139,255,.4);background:rgba(176,139,255,.12)}
+  .pill.g{color:var(--amber);border:1px solid rgba(255,200,87,.4);background:rgba(255,200,87,.12)}
+  .stat{display:flex;gap:26px;flex-wrap:wrap;margin-top:6px}
+  .stat .b{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:12px 18px;min-width:120px}
+  .stat .b .n{font-size:34px;font-weight:800}
+  .stat .b .l{font-size:13px;color:var(--muted)}
+  .nob{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:11px;background:var(--amber);color:#1a1405;font-weight:800;font-size:22px;margin-right:13px;flex:none}
+  .nhead{display:flex;align-items:center;margin-bottom:12px}
+  #bar{position:fixed;top:0;left:0;height:4px;background:var(--accent);z-index:50;transition:width .3s}
+  #hud{position:fixed;bottom:16px;right:22px;color:var(--muted);font-size:14px;z-index:50;display:flex;gap:12px;align-items:center}
+  .nav{background:var(--bg2);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:14px}
+  .nav:hover{border-color:var(--accent)}
+  #dots{position:fixed;bottom:18px;left:22px;display:flex;gap:5px;z-index:50;max-width:55vw;flex-wrap:wrap}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--line);cursor:pointer}
+  .dot.on{background:var(--accent)}
+  .dot.nob{background:#3a3320}.dot.nob.on{background:var(--amber)}
+  .dot.crit{background:#3a2a5a}.dot.crit.on{background:var(--purple)}
+  .dot.nok{background:#4a2424}.dot.nok.on{background:var(--red)}
+  .dot.bug{background:#4a3a1a}.dot.bug.on{background:#ff9f43}
+  .dot.str{background:#163a40}.dot.str.on{background:#39d3e0}
+  .nokb,.bugb,.strb{display:inline-flex;align-items:center;justify-content:center;min-width:78px;height:42px;padding:0 12px;border-radius:11px;font-weight:800;font-size:18px;margin-right:14px;flex:none;font-family:ui-monospace,Menlo,monospace}
+  .nokb{background:var(--red);color:#240606}
+  .bugb{background:#ff9f43;color:#2a1500}
+  .strb{background:#39d3e0;color:#04282c}
+  .erow{border-radius:8px;padding:11px 15px;margin:10px 0;font-size:18px;border-left:4px solid;line-height:1.45}
+  .erow.e-ok{background:rgba(62,207,142,.07);border-color:var(--green)}
+  .erow.e-bad{background:rgba(255,107,107,.08);border-color:var(--red)}
+  .erow.e-def{background:rgba(255,200,87,.07);border-color:var(--amber)}
+  .erow.e-info{background:rgba(84,185,255,.07);border-color:var(--accent)}
+  .statusline{font-size:15px;color:var(--muted);margin-top:8px}
+  .hint{position:fixed;top:14px;right:22px;color:var(--muted);font-size:13px;z-index:50}
+</style>
+</head>
+<body>
+<div id="bar"></div>
+<div class="hint"><span class="key">→</span> dalej · <span class="key">←</span> wstecz · <span class="key">F</span> pełny ekran</div>
+<div id="deck">
+
+  <!-- 1 -->
+  <section class="slide" data-sec="intro">
+    <div class="tag">Testowanie Oprogramowania · projekt zaliczeniowy</div>
+    <h1>Automatyczne testy symulatora EPC<br>w Robot Framework</h1>
+    <p class="lead">Kompleksowy pakiet testów REST API rdzenia sieci LTE: testy funkcjonalne, walidacyjne, stanowe, regresja defektów i testy stresowe/bezpieczeństwa.</p>
+  </section>
+
+  <!-- 2 liczby -->
+  <section class="slide" data-sec="intro">
+    <div class="tag">Projekt w liczbach</div>
+    <h2>Skala i pokrycie</h2>
+    <div class="stat">
+      <div class="b"><div class="n acc">80</div><div class="l">przypadków testowych</div></div>
+      <div class="b"><div class="n acc">12</div><div class="l">plików .robot</div></div>
+      <div class="b"><div class="n ok">67</div><div class="l">PASS</div></div>
+      <div class="b"><div class="n bad">13</div><div class="l">FAIL = wykryte defekty</div></div>
+      <div class="b"><div class="n warn">8</div><div class="l">udokumentowanych bugów</div></div>
+      <div class="b"><div class="n warn">6</div><div class="l">testów stresowych/DoS</div></div>
+    </div>
+    <p class="muted" style="margin-top:16px">Pokryte obszary funkcjonalne: attach, detach, add/list/delete bearer, start/stop/check transfer, reset — plus regresja błędów i obciążenie.</p>
+  </section>
+
+  <!-- 3 architektura -->
+  <section class="slide" data-sec="intro">
+    <div class="tag">Architektura</div>
+    <h2>System pod testem i warstwa testowa</h2>
+    <div class="row">
+      <div class="col card">
+        <h3 style="margin-top:0">🟦 SUT — symulator EPC</h3>
+        <p class="muted" style="font-size:17px">REST API (FastAPI/Pydantic, uvicorn) w obrazie Dockera <span class="mono">epc-simulator:1.0.0</span>, port 8000. Modeluje UE, bearery i ruch danych w rdzeniu LTE.</p>
+      </div>
+      <div class="col card">
+        <h3 style="margin-top:0">🟩 Testy — Robot Framework</h3>
+        <p class="muted" style="font-size:17px">Testy typu <b>czarna skrzynka</b> przez HTTP (RequestsLibrary + Collections). Weryfikują kontrakt API: kody statusu, treść JSON i trwały stan.</p>
+      </div>
+    </div>
+    <pre>Robot Framework  ──HTTP──►  Docker(FastAPI :8000)  ──►  stan UE / bearery / ruch
+   (asercje)      ◄──JSON──   (system pod testem)</pre>
+  </section>
+
+  <!-- 4 mapa pakietu -->
+  <section class="slide" data-sec="intro">
+    <div class="tag">Organizacja</div>
+    <h2>Struktura pakietu testowego</h2>
+    <div class="row">
+      <div class="col">
+        <table style="font-size:15px">
+          <tr><th>Plik</th><th>Testy</th><th>Obszar</th></tr>
+          <tr><td class="mono">smoke</td><td>1</td><td>żywotność API</td></tr>
+          <tr><td class="mono">attach / detach</td><td>6 / 4</td><td>cykl życia UE</td></tr>
+          <tr><td class="mono">add / list / delete_bearer</td><td>7 / 4 / 8</td><td>zarządzanie bearerami</td></tr>
+          <tr><td class="mono">transfer / check / stop</td><td>13 / 11 / 7</td><td>ruch danych i statystyki</td></tr>
+        </table>
+      </div>
+      <div class="col">
+        <table style="font-size:15px">
+          <tr><th>Plik</th><th>Testy</th><th>Rola</th></tr>
+          <tr><td class="mono">reset</td><td>5</td><td>stan początkowy</td></tr>
+          <tr><td class="mono">bugReports</td><td>8</td><td><span class="warn">regresja defektów</span></td></tr>
+          <tr><td class="mono">stressTests</td><td>6</td><td><span class="warn">obciążenie / DoS</span></td></tr>
+        </table>
+        <p class="muted" style="font-size:15px;margin-top:10px">Rozdział odpowiedzialności: jeden plik = jeden obszar funkcjonalny; osobne pliki na regresję i obciążenie.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 taksonomia -->
+  <section class="slide" data-sec="intro">
+    <div class="tag">Rodzaje testów</div>
+    <h2>Taksonomia — nie tylko „happy path”</h2>
+    <table>
+      <tr><th>Kategoria</th><th>Cel</th><th>Przykłady</th></tr>
+      <tr><td class="ok">Funkcjonalne (happy)</td><td>poprawny scenariusz</td><td class="mono small">T-001 attach, T-080 add bearer</td></tr>
+      <tr><td class="warn">Walidacyjne / brzegowe</td><td>złe dane, granice zakresów</td><td class="mono small">bearer 0/10, Mbps ujemne</td></tr>
+      <tr><td class="pur">Stanowe</td><td>trwały efekt operacji</td><td class="mono small">T-031 active=false, T-044 lista</td></tr>
+      <tr><td class="acc">Negatywne / błędów</td><td>operacje na nieistniejących</td><td class="mono small">UE not found, Bearer not found</td></tr>
+      <tr><td class="bad">Regresja defektów</td><td>utrwalenie znanych bugów</td><td class="mono small">BUG-1 … BUG-13</td></tr>
+      <tr><td class="warn">Stresowe / bezpieczeństwo</td><td>odporność, DoS</td><td class="mono small">ST-001 … ST-006</td></tr>
+    </table>
+  </section>
+
+  <!-- ===== KRYTERIA OCENY ===== -->
+
+  <!-- 6 divider -->
+  <section class="slide" data-sec="crit">
+    <div class="pill p">CZĘŚĆ A — kryteria oceny</div>
+    <h1>Jak projekt realizuje 5 kryteriów</h1>
+    <p class="lead">Każde kryterium pokazane na poziomie całego pakietu, z konkretnymi przykładami z kodu.</p>
+  </section>
+
+  <!-- 7 K1 -->
+  <section class="slide" data-sec="crit">
+    <div class="nhead"><div class="nob" style="background:var(--purple);color:#10071f">1</div><h2 style="margin:0">Definiowanie kryteriów akceptacji</h2></div>
+    <p class="muted" style="font-size:17px">Każdy test = jeden mierzalny warunek z kontraktu, zapisany jako <b>Akcja → Oczekiwane</b> i otagowany kategorią.</p>
+    <pre>T-082 Adding a bearer above the valid range is rejected
+    <span class="k">[Documentation]</span>  Akcja: dodanie bearera o ID = 10 (powyżej zakresu 1-9).
+    ...              Oczekiwane: błąd 422 — bearer ID musi być z dozwolonego zakresu.
+    <span class="k">[Tags]</span>    add-bearer    validation    boundary</pre>
+    <p style="font-size:17px">Kryterium słowne → postać mierzalna: <span class="mono">status &gt;= 400</span> + <span class="mono">body zawiera „Input should be less than or equal to 9”</span>. Tagami (<span class="mono">robot -i validation</span>) można uruchamiać wybrane klasy kryteriów.</p>
+  </section>
+
+  <!-- 8 K2 -->
+  <section class="slide" data-sec="crit">
+    <div class="nhead"><div class="nob" style="background:var(--purple);color:#10071f">2</div><h2 style="margin:0">Automatyzacja wg kryteriów</h2></div>
+    <div class="row">
+      <div class="col">
+        <p style="font-size:17px"><b>Keyword-driven DSL</b> z argumentami w nazwie (BDD) — testy czyta się jak zdania:</p>
+        <pre>Add bearer 1 to UE 50
+Stopping traffic on UE 77 bearer 9
+   should be rejected with message "UE not found"</pre>
+      </div>
+      <div class="col">
+        <ul style="font-size:16px">
+          <li>Warstwy: <b>akcje</b> / <b>asercje</b> domenowe / helpery.</li>
+          <li><span class="mono">Suite Setup</span>: sesja HTTP; <span class="mono">Test Setup → /reset</span>: izolacja.</li>
+          <li>Dane w <span class="mono">*** Variables ***</span> — łatwa zmiana.</li>
+          <li><span class="mono">expected_status=any</span> — kontrola asercji na błąd.</li>
+          <li>Wzorzec <b>Arrange–Act–Assert</b> w każdym teście.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="ok" style="font-size:16px;margin-top:4px">✔ Testy deterministyczne, niezależne od kolejności, odporne na zmianę danych.</p>
+  </section>
+
+  <!-- 9 K3 -->
+  <section class="slide" data-sec="crit">
+    <div class="nhead"><div class="nob" style="background:var(--purple);color:#10071f">3</div><h2 style="margin:0">Odczyt raportów i wnioski</h2></div>
+    <div class="row" style="align-items:center">
+      <div class="col" style="flex:none"><div class="big"><span class="ok">67</span> <span class="muted" style="font-size:26px">/</span> <span class="bad">13</span></div><p class="muted" style="font-size:15px">pass / fail (80)</p></div>
+      <div class="col" style="font-size:16px">
+        <p><span class="mono">report.html</span> — podsumowanie i podział wg tagów; <span class="mono">log.html</span> — każdy krok z żądaniem i odpowiedzią; <span class="mono">output.xml</span> — dane maszynowe (CI).</p>
+        <p><b>Wniosek:</b> 13 FAIL to <b>nie</b> awaria środowiska — to <b>realne defekty aplikacji</b>. Potwierdzone powtarzalnością (ten sam wynik przy ponownym uruchomieniu).</p>
+      </div>
+    </div>
+    <p class="warn" style="font-size:16px">Konkluzja: czerwony wynik = informacja, nie porażka. Kluczowe jest ustalenie, czy zawinił test, czy system.</p>
+  </section>
+
+  <!-- 10 K4 -->
+  <section class="slide" data-sec="crit">
+    <div class="nhead"><div class="nob" style="background:var(--purple);color:#10071f">4</div><h2 style="margin:0">Analiza i poprawianie błędnych testów</h2></div>
+    <table style="font-size:15px">
+      <tr><th>Pułapka w teście</th><th>Przyczyna</th><th>Poprawka</th></tr>
+      <tr><td>klucz bearera nieznaleziony</td><td>klucze JSON to stringi</td><td class="mono">Convert To String</td></tr>
+      <tr><td>False ≠ "False", tcp ≠ None</td><td>porównanie typów</td><td class="mono">${False} / ${None}</td></tr>
+      <tr><td>wyjątek zamiast asercji 4xx</td><td>brak obsługi statusu</td><td class="mono">expected_status=any</td></tr>
+      <tr><td>zła metoda HTTP (405)</td><td>GET zamiast POST na /reset</td><td class="mono">POST On Session</td></tr>
+    </table>
+    <p style="font-size:16px;margin-top:8px"><b class="acc">Dojrzała decyzja:</b> gdy test pada, rozstrzygamy „poprawić test” vs „zgłosić defekt”. Projekt <b>nie</b> ukrywa bugów przez naginanie asercji — czerwone funkcjonalne zostają, a bug trafia do regresji.</p>
+  </section>
+
+  <!-- 11 K5 -->
+  <section class="slide" data-sec="crit">
+    <div class="nhead"><div class="nob" style="background:var(--purple);color:#10071f">5</div><h2 style="margin:0">Testy jednostkowe i integracyjne</h2></div>
+    <table>
+      <tr><th>Poziom</th><th>Co sprawdza</th><th>Przykłady</th></tr>
+      <tr><td class="ok"><b>Jednostkowy</b><br><span class="muted small">pojedyncza reguła</span></td><td>jeden endpoint / jedna walidacja w izolacji</td><td class="mono small">smoke, T-082/083, T-002</td></tr>
+      <tr><td class="pur"><b>Integracyjny</b><br><span class="muted small">przepływ wielu kroków</span></td><td>kilka endpointów + spójność stanu między nimi</td><td class="mono small">T-044 add→delete→list<br>T-056 reset czyści ruch</td></tr>
+    </table>
+    <p style="font-size:16px;margin-top:8px">Izolację jednostkową gwarantuje <span class="mono">Test Setup → /reset</span>: każdy test bada dokładnie jedną rzecz. Dobór poziomu wg ryzyka i kosztu (piramida testów).</p>
+  </section>
+
+  <!-- ===== TESTY NOK (13) ===== -->
+
+  <!-- NOK divider -->
+  <section class="slide" data-sec="nok">
+    <div class="pill" style="color:var(--red);border:1px solid rgba(255,107,107,.4);background:rgba(255,107,107,.12)">TESTY NOK — wykryte defekty</div>
+    <h1>13 testów NOK — szczegóły</h1>
+    <p class="lead">Każdy z poniższych testów <b>celowo pada</b>, bo ujawnia defekt aplikacji. Format każdego slajdu: <span class="ok">Oczekiwane</span> → <span class="bad">Otrzymano</span> → <span class="warn">Defekt</span>.</p>
+    <p class="muted" style="font-size:15px;margin-top:8px">Rozkład: Attach 2 · Check Transfer 5 · Delete Bearer 1 · Stop Transfer 2 · Transfer 3</p>
+  </section>
+
+  <!-- NOK 1 -->
+  <section class="slide" data-sec="nok">
+    <div class="nhead"><div class="nokb">T-059</div><div><div style="font-size:21px;font-weight:700">Attach UE With ID 0 From Spec Range Succeeds</div><div class="muted" style="font-size:14px">attach.robot · obszar: attach / boundary</div></div></div>
+    <div class="erow e-ok"><b class="ok">Oczekiwane:</b> HTTP 200 — wg specyfikacji zakres UE to 0–100, więc UE o ID 0 powinien zostać przyjęty.</div>
+    <div class="erow e-bad"><b class="bad">Otrzymano:</b> HTTP 422 — API odrzuca UE o ID 0.</div>
+    <div class="erow e-def"><b class="warn">Defekt:</b> błędnie obsłużona dolna granica zakresu — wartość 0 jest traktowana jako nieprawidłowa, mimo że mieści się w kontrakcie.</div>
+  </section>
+
+  <!-- NOK 2 -->
+  <section class="slide" data-sec="nok">
+    <div class="nhead"><div class="nokb">T-077</div><div><div style="font-size:21px;font-weight:700">Attach With Boolean True As ue_id Is Rejected</div><div class="muted" style="font-size:14px">attach.robot · obszar: attach / walidacja typów</div></div></div>
+    <div class="erow e-ok"><b class="ok">Oczekiwane:</b> HTTP 422 — wartość logiczna <span class="mono">true</span> nie jest poprawnym identyfikatorem; ue_id przyjmuje wyłącznie liczby całkowite.</div>
+    <div class="erow e-bad"><b class="bad">Otrzymano:</b> HTTP 200 — API akceptuje <span class="mono">true</span> i tworzy UE.</div>
+    <div class="erow e-def"><b class="warn">Defekt:</b> brak walidacji typu — Pydantic po cichu rzutuje <span class="mono">true</span> na liczbę 1. <span class="muted">(odpowiednik regresji BUG-4)</span></div>
+  </section>
+
+  <!-- NOK 3 -->
+  <section class="slide" data-sec="nok">
+    <div class="nhead"><div class="nokb">T-027</div><div><div style="font-size:21px;font-weight:700">Aggregated traffic with default unit returns values in kbps</div><div class="muted" style="font-size:14px">check_transfer.robot · obszar: statystyki</div></div></div>
+    <div class="erow e-ok"><b class="ok">Oczekiwane:</b> domyślną jednostką wg spec jest kbps — odpowiedź powinna raportować wartości w kbps (klucz <span class="mono">total_tx_kbps</span>).</div>
+    <div class="erow e-bad"><b class="bad">Otrzymano:</b> brak klucza <span class="mono">total_tx_kbps</span> w odpowiedzi.</div>
+    <div class="erow e-def"><b class="warn">Defekt:</b> domyślna jednostka kbps nie jest raportowana zgodnie ze specyfikacją.</div>
+  </section>
+
+  <!-- NOK 4 -->
+  <section class="slide" data-sec="nok">
+    <div class="nhead"><div class="nokb">T-028</div><div><div style="font-size:21px;font-weight:700">Traffic of a single inactive bearer is rejected</div><div class="muted" style="font-size:14px">check_transfer.robot · obszar: walidacja</div></div></div>
+    <div class="erow e-ok"><b class="ok">Oczekiwane:</b> błąd — sprawdzenie transferu bearera, który nigdy nie został ustanowiony (bearer 5), powinno zostać odrzucone.</div>
+    <div class="erow e-bad"><b class="bad">Otrzymano:</b> HTTP 200 — API zwraca dane dla nieustanowionego bearera.</div>
+    <div class="erow e-def"><b class="warn">Defekt:</b> brak walidacji istnienia bearera przy odczycie transferu.</div>
+  </section>
+
+  <!-- NOK 5 -->
+  <section class="slide" data-sec="nok">
+    <div class="nhead"><div class="nokb">T-029</div><div><div style="font-size:21px;font-weight:700">Existing bearer with no transfer history is rejected</div><div class="muted" style="font-size:14px">check_transfer.robot · obszar: walidacja</div></div></div>
+    <div class="erow e-ok"><b class="ok">Oczekiwane:</b> HTTP 404 — bearer 9 istnieje, ale nigdy nie miał sesji transferu, więc brak historii powinien dać błąd.</div>
+    <div class="erow e-bad"><b class="bad">Otrzymano:</b> HTTP 200 — API zwraca puste statystyki zamiast błędu.</div>
+    <div class="erow e-def"><b class="warn">Defekt:</b> brak rozróżnienia „brak historii transferu” od „aktywna sesja”.</div>
+  </section>
+
+  <!-- NOK 6 -->
+  <section class="slide" data-sec="nok">
+    <div class="nhead"><div class="nokb">T-078</div><div><div style="font-size:21px;font-weight:700">bearer_count reflects all configured bearers, not only active</div><div class="muted" style="font-size:14px">check_transfer.robot · obszar: statystyki</div></div></div>
+    <div class="erow e-ok"><b class="ok">Oczekiwane:</b> <span class="mono">bearer_count = 2</span> — pole powinno zliczać skonfigurowane bearery (domyślny 9 + dodany dedykowany).</div>
+    <div class="erow e-bad"><b class="bad">Otrzymano:</b> <span class="mono">bearer_count = 0</span> — pole liczy tylko aktywne sesje transferu.</div>
+    <div class="erow e-def"><b class="warn">Defekt:</b> zła semantyka pola — liczy aktywne transfery zamiast skonfigurowanych bearerów. <span class="muted">(odpowiednik BUG-5)</span></div>
+  </section>
+
+  <!-- NOK 7 -->
+  <section class="slide" data-sec="nok">
+    <div class="nhead"><div class="nokb">T-079</div><div><div style="font-size:21px;font-weight:700">Duration resets to zero when traffic is restarted</div><div class="muted" style="font-size:14px">check_transfer.robot · obszar: statystyki / czas</div></div></div>
+    <div class="erow e-ok"><b class="ok">Oczekiwane:</b> <span class="mono">duration &lt; 2s</span> — po ponownym starcie na tym samym bearerze czas powinien być resetowany i mierzyć tylko bieżącą sesję.</div>
+    <div class="erow e-bad"><b class="bad">Otrzymano:</b> <span class="mono">duration ≈ 3s</span> — czas akumuluje się między sesjami.</div>
+    <div class="erow e-def"><b class="warn">Defekt:</b> duration sumuje czas poprzednich sesji zamiast resetować się przy starcie. <span class="muted">(odpowiednik BUG-10)</span></div>
+  </section>
+
+  <!-- NOK 8 -->
+  <section class="slide" data-sec="nok">
+    <div class="nhead"><div class="nokb">T-067</div><div><div style="font-size:21px;font-weight:700">Deleting a bearer with an active transfer is rejected</div><div class="muted" style="font-size:14px">delete_bearer.robot · obszar: integralność stanu</div></div></div>
+    <div class="erow e-ok"><b class="ok">Oczekiwane:</b> błąd — nie można usunąć bearera z aktywną sesją; transfer trzeba najpierw zatrzymać.</div>
+    <div class="erow e-bad"><b class="bad">Otrzymano:</b> HTTP 200 — API usuwa bearer mimo trwającego transferu.</div>
+    <div class="erow e-def"><b class="warn">Defekt:</b> brak ochrony przed usunięciem zasobu będącego w użyciu. <span class="muted">(odpowiednik BUG-8)</span></div>
+  </section>
+
+  <!-- NOK 9 -->
+  <section class="slide" data-sec="nok">
+    <div class="nhead"><div class="nokb">T-035</div><div><div style="font-size:21px;font-weight:700">Stopping traffic for all bearers of a UE returns success</div><div class="muted" style="font-size:14px">stop_transfer.robot · obszar: spec ↔ implementacja</div></div></div>
+    <div class="erow e-ok"><b class="ok">Oczekiwane:</b> HTTP 200 — wg dokumentacji EPC (pkt 5) transfer można zakończyć dla wszystkich bearerów, bearer ID jest opcjonalny: <span class="mono">DELETE /ues/{id}/traffic</span>.</div>
+    <div class="erow e-bad"><b class="bad">Otrzymano:</b> HTTP 404 — endpoint masowego stop nie istnieje w API.</div>
+    <div class="erow e-def"><b class="warn">Defekt:</b> brak zaimplementowanej funkcji wymaganej przez specyfikację — luka implementacja ↔ kontrakt.</div>
+  </section>
+
+  <!-- NOK 10 -->
+  <section class="slide" data-sec="nok">
+    <div class="nhead"><div class="nokb">T-036</div><div><div style="font-size:21px;font-weight:700">Stopping traffic clears the transfer statistics</div><div class="muted" style="font-size:14px">stop_transfer.robot · obszar: czyszczenie stanu</div></div></div>
+    <div class="erow e-ok"><b class="ok">Oczekiwane:</b> po zatrzymaniu transferu pola <span class="mono">protocol</span> i <span class="mono">target_bps</span> powinny być <span class="mono">null</span> — dane poprzedniej sesji nie mają być widoczne.</div>
+    <div class="erow e-bad"><b class="bad">Otrzymano:</b> <span class="mono">protocol = "tcp"</span> — stare dane pozostają po stopie.</div>
+    <div class="erow e-def"><b class="warn">Defekt:</b> statystyki nie są czyszczone po zakończeniu transferu. <span class="muted">(odpowiednik BUG-3)</span></div>
+  </section>
+
+  <!-- NOK 11 -->
+  <section class="slide" data-sec="nok">
+    <div class="nhead"><div class="nokb">T-016</div><div><div style="font-size:21px;font-weight:700">Starting traffic with negative Mbps is rejected</div><div class="muted" style="font-size:14px">transfer.robot · obszar: walidacja brzegowa</div></div></div>
+    <div class="erow e-ok"><b class="ok">Oczekiwane:</b> błąd — przepustowość <span class="mono">Mbps = -1</span> jest wartością ujemną, spoza dozwolonego zakresu.</div>
+    <div class="erow e-bad"><b class="bad">Otrzymano:</b> HTTP 200 — API akceptuje ujemną przepustowość.</div>
+    <div class="erow e-def"><b class="warn">Defekt:</b> brak walidacji dolnej granicy przepustowości.</div>
+  </section>
+
+  <!-- NOK 12 -->
+  <section class="slide" data-sec="nok">
+    <div class="nhead"><div class="nokb">T-017</div><div><div style="font-size:21px;font-weight:700">Starting traffic with extremely large Mbps is rejected</div><div class="muted" style="font-size:14px">transfer.robot · obszar: walidacja brzegowa</div></div></div>
+    <div class="erow e-ok"><b class="ok">Oczekiwane:</b> błąd — <span class="mono">Mbps = 1e9</span> (1 Pbps) jest wartością fizycznie nieosiągalną w sieciach LTE/5G.</div>
+    <div class="erow e-bad"><b class="bad">Otrzymano:</b> HTTP 200 — API akceptuje absurdalnie dużą wartość.</div>
+    <div class="erow e-def"><b class="warn">Defekt:</b> brak walidacji górnej granicy przepustowości.</div>
+  </section>
+
+  <!-- NOK 13 -->
+  <section class="slide" data-sec="nok">
+    <div class="nhead"><div class="nokb">T-058</div><div><div style="font-size:21px;font-weight:700">Starting traffic above the 100 Mbps DL limit is rejected</div><div class="muted" style="font-size:14px">transfer.robot · obszar: spec ↔ implementacja</div></div></div>
+    <div class="erow e-ok"><b class="ok">Oczekiwane:</b> błąd — wg spec maksymalny transfer DL dla UE to 100 Mbps, a test używa <span class="mono">Mbps = 101</span> (tuż powyżej limitu).</div>
+    <div class="erow e-bad"><b class="bad">Otrzymano:</b> HTTP 200 — API akceptuje 101 Mbps.</div>
+    <div class="erow e-def"><b class="warn">Defekt:</b> deklarowany limit 100 Mbps nie jest egzekwowany. <span class="muted">(odpowiednik BUG-13)</span></div>
+  </section>
+
+  <!-- ===== TESTY REGRESJI BUGÓW (8) ===== -->
+
+  <!-- BUG divider -->
+  <section class="slide" data-sec="bug">
+    <div class="pill" style="color:#ff9f43;border:1px solid rgba(255,159,67,.4);background:rgba(255,159,67,.12)">REGRESJA DEFEKTÓW — bugReports.robot</div>
+    <h1>8 testów regresji bugów</h1>
+    <p class="lead">Odwrócona logika: każdy test <b>PRZECHODZI gdy błąd istnieje</b>, a <b>zafailuje, gdy zostanie naprawiony</b>. Format: <span class="bad">Błąd (stan obecny)</span> → <span class="ok">Poprawne zachowanie</span>.</p>
+    <p class="muted" style="font-size:15px;margin-top:8px">Cel: utrwalić defekt jako dowód i automatyczny sygnał naprawy. Wszystkie 8 = PASS.</p>
+  </section>
+
+  <!-- BUG 1 -->
+  <section class="slide" data-sec="bug">
+    <div class="nhead"><div class="bugb">BUG-1</div><div><div style="font-size:21px;font-weight:700">Stop traffic zwraca sukces, gdy nie było aktywnego transferu</div><div class="muted" style="font-size:14px">bugReports.robot · stop-transfer</div></div></div>
+    <div class="erow e-bad"><b class="bad">Błąd:</b> <span class="mono">DELETE …/traffic</span> na bearerze bez uruchomionego transferu zwraca <span class="mono">traffic_stopped</span> zamiast błędu.</div>
+    <div class="erow e-ok"><b class="ok">Poprawnie:</b> API powinno zwrócić 4xx — nie można zatrzymać sesji, która nigdy nie wystartowała.</div>
+    <div class="statusline">Status testu: <b class="ok">PASS</b> — potwierdza obecność buga.</div>
+  </section>
+
+  <!-- BUG 2 -->
+  <section class="slide" data-sec="bug">
+    <div class="nhead"><div class="bugb">BUG-2</div><div><div style="font-size:21px;font-weight:700">GET stats zwraca 200 dla bearera bez historii transferu</div><div class="muted" style="font-size:14px">bugReports.robot · check-transfer</div></div></div>
+    <div class="erow e-bad"><b class="bad">Błąd:</b> odczyt transferu bearera, który nigdy nie miał sesji, zwraca 200 z pustymi polami (null, 0).</div>
+    <div class="erow e-ok"><b class="ok">Poprawnie:</b> API powinno zwrócić 404 — brak danych transferu dla tego bearera.</div>
+    <div class="statusline">Status testu: <b class="ok">PASS</b> — potwierdza obecność buga.</div>
+  </section>
+
+  <!-- BUG 3 -->
+  <section class="slide" data-sec="bug">
+    <div class="nhead"><div class="bugb">BUG-3</div><div><div style="font-size:21px;font-weight:700">GET stats zachowuje stare dane po zatrzymaniu transferu</div><div class="muted" style="font-size:14px">bugReports.robot · check-transfer</div></div></div>
+    <div class="erow e-bad"><b class="bad">Błąd:</b> po stopie GET <span class="mono">/traffic</span> nadal zwraca historyczne <span class="mono">protocol</span> i <span class="mono">target_bps</span> z poprzedniej sesji.</div>
+    <div class="erow e-ok"><b class="ok">Poprawnie:</b> po stopie protocol i target_bps powinny być null, a tx_bps/rx_bps wyzerowane.</div>
+    <div class="statusline">Status testu: <b class="ok">PASS</b> · powiązany NOK: <span class="mono">T-036</span></div>
+  </section>
+
+  <!-- BUG 4 -->
+  <section class="slide" data-sec="bug">
+    <div class="nhead"><div class="bugb">BUG-4</div><div><div style="font-size:21px;font-weight:700">Attach z ue_id = boolean true akceptowany jako UE 1</div><div class="muted" style="font-size:14px">bugReports.robot · attach / walidacja</div></div></div>
+    <div class="erow e-bad"><b class="bad">Błąd:</b> pole ue_id akceptuje <span class="mono">true</span>, które Pydantic po cichu konwertuje na liczbę 1 i tworzy UE.</div>
+    <div class="erow e-ok"><b class="ok">Poprawnie:</b> API powinno zwrócić 422 — wartości boolowskie nie są poprawnymi identyfikatorami.</div>
+    <div class="statusline">Status testu: <b class="ok">PASS</b> · powiązany NOK: <span class="mono">T-077</span></div>
+  </section>
+
+  <!-- BUG 5 -->
+  <section class="slide" data-sec="bug">
+    <div class="nhead"><div class="bugb">BUG-5</div><div><div style="font-size:21px;font-weight:700">bearer_count liczy aktywne transfery, nie skonfigurowane bearery</div><div class="muted" style="font-size:14px">bugReports.robot · statystyki</div></div></div>
+    <div class="erow e-bad"><b class="bad">Błąd:</b> <span class="mono">bearer_count</span> w <span class="mono">/ues/stats</span> liczy bearery z aktywnym ruchem; dla UE z 2 bearerami bez ruchu daje 0.</div>
+    <div class="erow e-ok"><b class="ok">Poprawnie:</b> bearer_count powinien zliczać wszystkie skonfigurowane bearery.</div>
+    <div class="statusline">Status testu: <b class="ok">PASS</b> · powiązany NOK: <span class="mono">T-078</span></div>
+  </section>
+
+  <!-- BUG 8 -->
+  <section class="slide" data-sec="bug">
+    <div class="nhead"><div class="bugb">BUG-8</div><div><div style="font-size:21px;font-weight:700">Usunięcie bearera z aktywnym ruchem zwraca sukces bez ostrzeżenia</div><div class="muted" style="font-size:14px">bugReports.robot · integralność stanu</div></div></div>
+    <div class="erow e-bad"><b class="bad">Błąd:</b> <span class="mono">DELETE …/bearers/{id}</span> na bearerze z aktywną sesją zwraca <span class="mono">bearer_deleted</span> bez informacji o przerwaniu ruchu.</div>
+    <div class="erow e-ok"><b class="ok">Poprawnie:</b> API powinno zwrócić błąd (wymóg wcześniejszego stopu) lub jawnie potwierdzić zakończenie sesji.</div>
+    <div class="statusline">Status testu: <b class="ok">PASS</b> · powiązany NOK: <span class="mono">T-067</span></div>
+  </section>
+
+  <!-- BUG 10 -->
+  <section class="slide" data-sec="bug">
+    <div class="nhead"><div class="bugb">BUG-10</div><div><div style="font-size:21px;font-weight:700">duration akumuluje się między kolejnymi sesjami na tym samym bearerze</div><div class="muted" style="font-size:14px">bugReports.robot · statystyki / czas</div></div></div>
+    <div class="erow e-bad"><b class="bad">Błąd:</b> <span class="mono">duration</span> nie jest resetowane przy ponownym starcie — sumuje czas wszystkich poprzednich sesji na bearerze.</div>
+    <div class="erow e-ok"><b class="ok">Poprawnie:</b> duration powinno mierzyć tylko bieżącą sesję, zerując się przy każdym starcie.</div>
+    <div class="statusline">Status testu: <b class="ok">PASS</b> · powiązany NOK: <span class="mono">T-079</span></div>
+  </section>
+
+  <!-- BUG 13 -->
+  <section class="slide" data-sec="bug">
+    <div class="nhead"><div class="bugb">BUG-13</div><div><div style="font-size:21px;font-weight:700">Limit 100 Mbps nie jest egzekwowany — dowolna wartość akceptowana</div><div class="muted" style="font-size:14px">bugReports.robot · spec ↔ implementacja</div></div></div>
+    <div class="erow e-bad"><b class="bad">Błąd:</b> limit 100 Mbps ze spec nie działa — <span class="mono">Mbps=10000</span> (10 Gbps) jest akceptowane; walidacja górnej granicy nieobecna.</div>
+    <div class="erow e-ok"><b class="ok">Poprawnie:</b> wartość powyżej 100 Mbps powinna zostać odrzucona.</div>
+    <div class="statusline">Status testu: <b class="ok">PASS</b> · powiązany NOK: <span class="mono">T-058</span></div>
+  </section>
+
+  <!-- ===== TESTY STRESOWE (6) ===== -->
+
+  <!-- STRESS divider -->
+  <section class="slide" data-sec="str">
+    <div class="pill" style="color:#39d3e0;border:1px solid rgba(57,211,224,.4);background:rgba(57,211,224,.12)">OBCIĄŻENIE I BEZPIECZEŃSTWO — stressTests.robot</div>
+    <h1>6 testów stresowych</h1>
+    <p class="lead">Testy niefunkcjonalne: wydajność i odporność na nadużycie zasobów (DoS). Format: <span class="acc">Działanie</span> → <span class="warn">Wniosek / wykryta słabość</span>.</p>
+    <p class="muted" style="font-size:15px;margin-top:8px">Wszystkie 6 = PASS — potwierdzają brak mechanizmów ochronnych.</p>
+  </section>
+
+  <!-- ST-001 -->
+  <section class="slide" data-sec="str">
+    <div class="nhead"><div class="strb">ST-001</div><div><div style="font-size:21px;font-weight:700">Brak rate limitingu — burst 50 żądań /reset</div><div class="muted" style="font-size:14px">stressTests.robot · DoS / rate-limit</div></div></div>
+    <div class="erow e-info"><b class="acc">Działanie:</b> 50 kolejnych żądań <span class="mono">POST /reset</span> bez żadnej przerwy.</div>
+    <div class="erow e-def"><b class="warn">Wniosek:</b> wszystkie 50 zwracają 200 — serwer nie ma throttlingu. Udokumentowany wektor DoS.</div>
+  </section>
+
+  <!-- ST-002 -->
+  <section class="slide" data-sec="str">
+    <div class="nhead"><div class="strb">ST-002</div><div><div style="font-size:21px;font-weight:700">Brak limitu rozmiaru żądania — payload 10 MB</div><div class="muted" style="font-size:14px">stressTests.robot · DoS / payload</div></div></div>
+    <div class="erow e-info"><b class="acc">Działanie:</b> <span class="mono">POST /ues</span> z dodatkowym polem o rozmiarze ~10 MB.</div>
+    <div class="erow e-def"><b class="warn">Wniosek:</b> serwer przetwarza cały payload bez błędu — brak limitu rozmiaru na wejściu (wektor OOM).</div>
+  </section>
+
+  <!-- ST-003 -->
+  <section class="slide" data-sec="str">
+    <div class="nhead"><div class="strb">ST-003</div><div><div style="font-size:21px;font-weight:700">Brak limitu rozmiaru żądania — payload 100 MB</div><div class="muted" style="font-size:14px">stressTests.robot · DoS / payload</div></div></div>
+    <div class="erow e-info"><b class="acc">Działanie:</b> <span class="mono">POST /ues</span> z polem o rozmiarze ~100 MB.</div>
+    <div class="erow e-def"><b class="warn">Wniosek:</b> serwer odpowiada bez błędu 5xx — pojedyncze żądanie potrafi wyczerpać pamięć bez limitu.</div>
+  </section>
+
+  <!-- ST-004 -->
+  <section class="slide" data-sec="str">
+    <div class="nhead"><div class="strb">ST-004</div><div><div style="font-size:21px;font-weight:700">Przepustowość attach — seryjne podłączenie 100 UE</div><div class="muted" style="font-size:14px">stressTests.robot · wydajność</div></div></div>
+    <div class="erow e-info"><b class="acc">Działanie:</b> kolejne podłączenie 100 unikalnych UE (ID 1–100) z pomiarem łącznego czasu.</div>
+    <div class="erow e-def"><b class="warn">Wniosek:</b> wyznacza bazową przepustowość <span class="mono">POST /ues</span> i pozwala wykryć degradację wydajności.</div>
+  </section>
+
+  <!-- ST-005 -->
+  <section class="slide" data-sec="str">
+    <div class="nhead"><div class="strb">ST-005</div><div><div style="font-size:21px;font-weight:700">Reset pod pełnym obciążeniem — 100 UE w stanie</div><div class="muted" style="font-size:14px">stressTests.robot · wydajność / stan</div></div></div>
+    <div class="erow e-info"><b class="acc">Działanie:</b> po attach 100 UE wykonuje <span class="mono">POST /reset</span> i weryfikuje pełne wyczyszczenie stanu.</div>
+    <div class="erow e-def"><b class="warn">Wniosek:</b> potwierdza, że reset czyści cały stan, oraz mierzy czas resetu przy pełnym obciążeniu.</div>
+  </section>
+
+  <!-- ST-006 -->
+  <section class="slide" data-sec="str">
+    <div class="nhead"><div class="strb">ST-006</div><div><div style="font-size:21px;font-weight:700">Crash test — payload 500 MB powoduje OOM w kontenerze</div><div class="muted" style="font-size:14px">stressTests.robot · DoS / crash</div></div></div>
+    <div class="erow e-info"><b class="acc">Działanie:</b> <span class="mono">POST /ues</span> z polem padding ~500 MB.</div>
+    <div class="erow e-def"><b class="warn">Wniosek:</b> <span class="bad">awaria kontenera (OOM)</span> — brak jakiegokolwiek limitu rozmiaru żądania. Najpoważniejszy wektor DoS.</div>
+    <div class="statusline">⚠️ Może pozostawić kontener niedostępnym — uruchamiać ostrożnie.</div>
+  </section>
+
+  <!-- ===== RZECZY NIEOCZYWISTE ===== -->
+
+  <!-- 12 divider -->
+  <section class="slide" data-sec="nob">
+    <div class="pill g">CZĘŚĆ B — co wyróżnia projekt</div>
+    <h1>Rzeczy nieoczywiste</h1>
+    <p class="lead">Decyzje projektowe i odkrycia, które wykraczają poza „napisać kilka testów”.</p>
+  </section>
+
+  <!-- 13 nieoczywiste 1 -->
+  <section class="slide" data-sec="nob">
+    <div class="nhead"><div class="nob">1</div><h2 style="margin:0">Każdy defekt udokumentowany dwukrotnie</h2></div>
+    <p style="font-size:17px">Ten sam bug istnieje w dwóch testach o <b>przeciwnej</b> logice:</p>
+    <table style="font-size:15px">
+      <tr><th>Bug</th><th>Test funkcjonalny (oczekuje POPRAWY)</th><th>Test regresji (utrwala STAN OBECNY)</th></tr>
+      <tr><td>boolean ue_id</td><td class="bad mono">T-077 → FAIL</td><td class="ok mono">BUG-4 → PASS</td></tr>
+      <tr><td>stare statystyki po stopie</td><td class="bad mono">T-036 → FAIL</td><td class="ok mono">BUG-3 → PASS</td></tr>
+      <tr><td>limit 100 Mbps</td><td class="bad mono">T-058 → FAIL</td><td class="ok mono">BUG-13 → PASS</td></tr>
+      <tr><td>usunięcie aktywnego bearera</td><td class="bad mono">T-067 → FAIL</td><td class="ok mono">BUG-8 → PASS</td></tr>
+    </table>
+    <pre style="margin-top:8px"><span class="c"># bugReports.robot: test PRZECHODZI gdy błąd ISTNIEJE, FAILUJE gdy go naprawią</span></pre>
+    <p class="warn" style="font-size:15px">Po naprawie API test BUG-x zafailuje → automatyczny sygnał „defekt zniknął, zaktualizuj testy”.</p>
+  </section>
+
+  <!-- 14 nieoczywiste 2 -->
+  <section class="slide" data-sec="nob">
+    <div class="nhead"><div class="nob">2</div><h2 style="margin:0">Rozjazd specyfikacja ↔ implementacja</h2></div>
+    <p style="font-size:17px">Część defektów to nie błędne wartości, lecz <b>brakująca lub niezgodna funkcjonalność</b>:</p>
+    <ul style="font-size:17px">
+      <li><span class="mono">T-035</span> — spec przewiduje masowy stop <span class="mono">DELETE /ues/{id}/traffic</span>; endpointu <b>brak w API</b> → 404. Test poprawny, brak w implementacji.</li>
+      <li><span class="mono">T-058 / BUG-13</span> — dokumentacja deklaruje limit 100 Mbps DL; API przyjmuje dowolną wartość → limit nieegzekwowany.</li>
+    </ul>
+    <p class="acc" style="font-size:16px">Wniosek testerski: testy weryfikują <b>zgodność z kontraktem</b>, a nie tylko „czy nie wyrzuca wyjątku”. Wykrywają luki między dokumentacją a kodem.</p>
+  </section>
+
+  <!-- 15 nieoczywiste 3 -->
+  <section class="slide" data-sec="nob">
+    <div class="nhead"><div class="nob">3</div><h2 style="margin:0">Walidacja typów i wartości brzegowych</h2></div>
+    <div class="row">
+      <div class="col" style="font-size:16px">
+        <p><b>Analiza wartości brzegowych</b> — testy „tuż za” granicą:</p>
+        <ul>
+          <li>bearer <span class="mono">0</span> i <span class="mono">10</span> (zakres 1–9)</li>
+          <li>UE <span class="mono">-1</span>, <span class="mono">0</span>, <span class="mono">100</span> (zakres 0–100)</li>
+          <li>Mbps ujemne / ekstremalnie duże</li>
+        </ul>
+      </div>
+      <div class="col" style="font-size:16px">
+        <p><b>Pułapki typów</b> wykryte i przetestowane:</p>
+        <ul>
+          <li><span class="mono">ue_id: true</span> → Pydantic po cichu robi <span class="mono">1</span> (BUG-4)</li>
+          <li>klucze bearerów w JSON to <b>stringi</b></li>
+          <li>boolean/null jako wartości, nie napisy</li>
+        </ul>
+      </div>
+    </div>
+    <p class="muted" style="font-size:15px">Znajomość źródła błędu: walidacja zakresu = <b>422 z Pydantic</b>, a nie ręczne 400 — to świadome rozróżnienie warstw.</p>
+  </section>
+
+  <!-- 16 nieoczywiste 4 -->
+  <section class="slide" data-sec="nob">
+    <div class="nhead"><div class="nob">4</div><h2 style="margin:0">Właściwości, o których łatwo zapomnieć</h2></div>
+    <table>
+      <tr><th>Właściwość</th><th>Test</th><th>Dlaczego ważne</th></tr>
+      <tr><td><b>Idempotentność</b></td><td class="mono small">T-032 (stop×2)<br>T-055 (reset×2)</td><td>powtórzenie operacji nie może rzucać błędu (retry, zawodna sieć)</td></tr>
+      <tr><td><b>Poprawna metoda HTTP</b></td><td class="mono small">T-057 (GET /reset → 405)</td><td>operacja zmieniająca stan tylko przez POST/DELETE</td></tr>
+      <tr><td><b>Izolacja zasobów</b></td><td class="mono small">T-044 (delete ≠ rusza 9)</td><td>usunięcie dedykowanego bearera nie kasuje domyślnego</td></tr>
+    </table>
+    <p class="muted" style="font-size:16px;margin-top:8px">To kryteria, których nie ma w „oczywistym” happy-pathie, a decydują o jakości kontraktu API.</p>
+  </section>
+
+  <!-- 17 nieoczywiste 5 - security -->
+  <section class="slide" data-sec="nob">
+    <div class="nhead"><div class="nob">5</div><h2 style="margin:0">Testy stresowe = wykrywanie podatności</h2></div>
+    <p style="font-size:17px"><span class="mono">stressTests.robot</span> dokumentuje wektory <b>DoS</b> — to już testowanie niefunkcjonalne/bezpieczeństwa:</p>
+    <table style="font-size:15px">
+      <tr><th>Test</th><th>Wykryta słabość</th></tr>
+      <tr><td class="mono">ST-001</td><td>brak rate limitingu — 50 żądań /reset bez throttlingu</td></tr>
+      <tr><td class="mono">ST-002/003</td><td>brak limitu rozmiaru żądania — payload 10 MB i 100 MB przyjęte</td></tr>
+      <tr><td class="mono">ST-006</td><td><span class="bad">crash</span>: payload 500 MB → OOM w kontenerze</td></tr>
+    </table>
+    <p class="warn" style="font-size:15px">Wniosek: serwer nie ma ochrony przed nadużyciem zasobów — realne ryzyko w środowisku produkcyjnym.</p>
+  </section>
+
+  <!-- 18 nieoczywiste 6 - powtarzalnosc -->
+  <section class="slide" data-sec="nob">
+    <div class="nhead"><div class="nob">6</div><h2 style="margin:0">Powtarzalność i izolacja środowiska</h2></div>
+    <ul style="font-size:17px">
+      <li><b>Wersjonowany obraz</b> <span class="mono">epc-simulator:1.0.0</span> w Dockerze — każdy uruchamia <b>identyczny</b> SUT, niezależnie od maszyny.</li>
+      <li><span class="mono">Test Setup → /reset</span> przed każdym testem — brak „wycieku” stanu między testami, brak zależności od kolejności.</li>
+      <li>Wynik <b>67/13 jest odtwarzalny</b> — porównany między oryginalnym przebiegiem zespołu a ponownym uruchomieniem.</li>
+    </ul>
+    <p class="acc" style="font-size:16px">To fundament wiarygodności: test jest dowodem tylko wtedy, gdy daje ten sam wynik za każdym razem.</p>
+  </section>
+
+  <!-- ===== PODSUMOWANIE ===== -->
+
+  <!-- 19 co wykryto -->
+  <section class="slide" data-sec="intro">
+    <div class="tag">Wartość projektu</div>
+    <h2>Co testy realnie wykryły</h2>
+    <div class="row">
+      <div class="col" style="font-size:16px">
+        <b>Defekty funkcjonalne (8):</b>
+        <ul>
+          <li>stop bez ruchu zwraca sukces (BUG-1)</li>
+          <li>statystyki bez historii / nieczyszczone (BUG-2/3)</li>
+          <li>boolean jako ue_id (BUG-4)</li>
+          <li>błędne liczenie bearerów (BUG-5)</li>
+          <li>usunięcie aktywnego bearera (BUG-8)</li>
+          <li>akumulacja duration (BUG-10)</li>
+          <li>brak limitu 100 Mbps (BUG-13)</li>
+        </ul>
+      </div>
+      <div class="col" style="font-size:16px">
+        <b>Luki kontraktu:</b>
+        <ul><li>brak endpointu masowego stop (T-035)</li><li>UE 0 odrzucany mimo zakresu (T-059)</li></ul>
+        <b>Podatności (DoS):</b>
+        <ul><li>brak rate limitingu</li><li>brak limitu rozmiaru payloadu</li><li>crash OOM przy 500 MB</li></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 20 wnioski -->
+  <section class="slide" data-sec="intro">
+    <div class="tag">Podsumowanie</div>
+    <h1 class="ok">Wnioski</h1>
+    <ul style="font-size:18px">
+      <li><b>Pełne pokrycie</b>: 80 testów w 5 klasach — funkcjonalne, walidacyjne, stanowe, regresja, stres.</li>
+      <li><b>Kryteria akceptacji</b> mierzalne i otagowane; automatyzacja w czytelnym DSL z izolacją.</li>
+      <li><b>Raporty</b> czytane z wnioskiem: 13 FAIL = defekty, nie błędy testów; każdy bug utrwalony w regresji.</li>
+      <li><b>Dojrzałość</b>: testy weryfikują zgodność z kontraktem i nie ukrywają defektów.</li>
+      <li><b>Wartość dla produktu</b>: 8 bugów + luki spec + 3 wektory DoS gotowe do zgłoszenia.</li>
+    </ul>
+    <p class="muted" style="margin-top:14px">Dziękujemy za uwagę.</p>
+  </section>
+
+</div>
+
+<div id="dots"></div>
+<div id="hud">
+  <button class="nav" onclick="go(cur-1)">‹ Wstecz</button>
+  <span id="num">1 / 50</span>
+  <button class="nav" onclick="go(cur+1)">Dalej ›</button>
+</div>
+
+<script>
+const slides=[...document.querySelectorAll('.slide')];
+const dotsWrap=document.getElementById('dots');
+let cur=0;
+slides.forEach((s,i)=>{const m={crit:'crit',nob:'nob',nok:'nok',bug:'bug',str:'str'};const d=document.createElement('div');d.className='dot '+(m[s.dataset.sec]||'');d.onclick=()=>go(i);dotsWrap.appendChild(d);});
+const dots=[...document.querySelectorAll('.dot')];
+function go(i){
+  cur=Math.max(0,Math.min(slides.length-1,i));
+  slides.forEach((s,k)=>s.classList.toggle('active',k===cur));
+  dots.forEach((d,k)=>d.classList.toggle('on',k===cur));
+  document.getElementById('bar').style.width=((cur+1)/slides.length*100)+'%';
+  document.getElementById('num').textContent=(cur+1)+' / '+slides.length;
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){go(cur+1);e.preventDefault();}
+  else if(e.key==='ArrowLeft'||e.key==='PageUp'){go(cur-1);}
+  else if(e.key==='Home'){go(0);}else if(e.key==='End'){go(slides.length-1);}
+  else if(e.key.toLowerCase()==='f'){if(!document.fullscreenElement)document.documentElement.requestFullscreen();else document.exitFullscreen();}
+});
+go(0);
+</script>
+</body>
+</html>
